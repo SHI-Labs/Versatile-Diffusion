@@ -24,13 +24,8 @@ This repo hosts the official implementary of:
 One single flow of VD contains a VAE, a diffusor and a context encoder, and thus handles one tasks (e.g. text-to-image) under one data type (e.g. image) and one context type (e.g. text). And the multi-flow structure of VD shows in the following diagram:
 
 <p align="center">
-  <img src="assets/figures/vd.png" width="99%">
+  <img src="assets/figures/VD framework.png" width="99%">
 </p>
-
-<p align="center">
-  <img src="assets/figures/fcresblock.png" width="40%">
-</p>
-
 
 According to VD, we further proposed a generalized multi-flow multimodal framework with VAEs, context encoders, and diffusors that contains three types of layers (i.e. global, data, context layers). To involve a new multimodal task in this framework, we bring out the following requirements:
 
@@ -38,9 +33,6 @@ According to VD, we further proposed a generalized multi-flow multimodal framewo
 * The choice of VAEs should smoothly map data onto highly interpretable latent spaces.
 * The choice of context encoders should jointly minimize the cross-modal statistical distance on all supported content types.
 
-<p align="center">
-  <img src="assets/figures/framework.png" width="40%">
-</p>
 
 ## Performance
 
