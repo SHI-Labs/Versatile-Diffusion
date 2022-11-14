@@ -73,7 +73,7 @@ pip install -r requirement.txt
 
 ## Pretrained models
 
-All useful pretrained model can be download at this [link](https://drive.google.com/drive/folders/1SloRnOO9UnonfvubPWfw0uFpLco_2JvH?usp=sharing). The pretrained folder should include the following files:
+All useful pretrained model can be downloaded from this [link](https://drive.google.com/drive/folders/1SloRnOO9UnonfvubPWfw0uFpLco_2JvH?usp=sharing). The pretrained folder should include the following files:
 
 ```
 ├── pretrained
