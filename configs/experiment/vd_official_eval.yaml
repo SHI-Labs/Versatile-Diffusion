@@ -4,7 +4,7 @@ env:
   dist_backend: nccl
   matplotlib_mode: agg
   log_root_dir: log
-  rnd_seed: 200
+  rnd_seed: 20
 
 model: MODEL(vd_noema)
 
