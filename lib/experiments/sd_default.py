@@ -189,7 +189,8 @@ class color_adjust(object):
         xin, _, _ = self.get_data_and_stat(xin)
         x = self.preprocess(xin)
         if simple: 
-            y = np.clip(x, 0, 255).astype(np.uint8)
+            y = (x*(1-keep) + xin*keep)
+            y = np.clip(y, 0, 255).astype(np.uint8)
             return y
 
         h, w = x.shape[:2]
