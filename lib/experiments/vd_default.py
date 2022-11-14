@@ -552,7 +552,7 @@ class eval_stage_dc(eval_stage_base):
 ################
 
 class eval_stage_i2t2i(eval_stage):
-        def __init__(self):
+    def __init__(self):
         from ..model_zoo.ddim_vd import DDIMSampler_VD_DualContext
         self.sampler = DDIMSampler_VD_DualContext
 
