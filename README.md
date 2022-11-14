@@ -22,7 +22,7 @@ This repo hosts the official implementary of:
 
 ## Network and Framework
 
-One single flow of VD contains a VAE, a diffusor and a context encoder, and thus handles one tasks (e.g. text-to-image) under one data type (e.g. image) and one context type (e.g. text). And the multi-flow structure of VD shows in the following diagram:
+One single flow of VD contains a VAE, a diffuser and a context encoder, and thus handles one tasks (e.g. text-to-image) under one data type (e.g. image) and one context type (e.g. text). And the multi-flow structure of VD shows in the following diagram:
 
 <p align="center">
   <img src="assets/figures/VD_framework.png" width="99%">
