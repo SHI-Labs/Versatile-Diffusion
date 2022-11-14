@@ -8,7 +8,7 @@ This repo hosts the official implementary of:
 
 ## News
 
-- [2022.11.14]: Part of our evaluation codes and models are released!
+- [2022.11.14]: Part of our evaluation code and models are released!
 - [2022.11.12]: Repo initiated
 
 ## Introduction
@@ -28,9 +28,9 @@ One single flow of VD contains a VAE, a diffusor and a context encoder, and thus
   <img src="assets/figures/VD_framework.png" width="99%">
 </p>
 
-According to VD, we further proposed a generalized multi-flow multimodal framework with VAEs, context encoders, and diffusors that contains three types of layers (i.e. global, data, context layers). To involve a new multimodal task in this framework, we bring out the following requirements:
+According to VD, we further proposed a generalized multi-flow multimodal framework with VAEs, context encoders, and diffusers that contains three types of layers (i.e. global, data, context layers). To involve a new multimodal task in this framework, we bring out the following requirements:
 
-* The design of core diffusor should contain shared global layers, swappable data and context layers that will be correspondingly activated based on data and context types.
+* The design of core diffuser should contain shared global layers, swappable data and context layers that will be correspondingly activated based on data and context types.
 * The choice of VAEs should smoothly map data onto highly interpretable latent spaces.
 * The choice of context encoders should jointly minimize the cross-modal statistical distance on all supported content types.
 
