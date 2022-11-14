@@ -4,7 +4,7 @@ env:
   dist_backend: nccl
   matplotlib_mode: agg
   log_root_dir: log
-  rnd_seed: 20
+  rnd_seed: 200
 
 model: MODEL(vd_noema)
 
@@ -16,22 +16,22 @@ eval:
 
   conditioning:
     - ["a dream of a village in china, by Caspar David Friedrich, matte painting trending on artstation HQ", "image"]
-    # - ["a beautiful grand nebula in the universe", "image"]
-    # - ["area of rocks that deep inside the forest, divine domain", "image"]
-    # - ["heavy arms gundam penguin mech", "image"]
+    - ["a beautiful grand nebula in the universe", "image"]
+    - ["area of rocks that deep inside the forest, divine domain", "image"]
+    - ["heavy arms gundam penguin mech", "image"]
     - ["assets/boy_and_girl.jpg", "image"]
-    # - ["assets/house_by_lake.jpg", "image"]
-    # - ["assets/ghibli.jpg", "image"]
-    # - ["assets/scream.jpg", "image"]
+    - ["assets/house_by_lake.jpg", "image"]
+    - ["assets/ghibli.jpg", "image"]
+    - ["assets/scream.jpg", "image"]
 
     - ["a dream of a village in china, by Caspar David Friedrich, matte painting trending on artstation HQ", "text"]
-    # - ["a beautiful grand nebula in the universe", "text"]
-    # - ["area of rocks that deep inside the forest, divine domain", "text"]
-    # - ["heavy arms gundam penguin mech", "text"]
+    - ["a beautiful grand nebula in the universe", "text"]
+    - ["area of rocks that deep inside the forest, divine domain", "text"]
+    - ["heavy arms gundam penguin mech", "text"]
     - ["assets/boy_and_girl.jpg", "text"]
-    # - ["assets/house_by_lake.jpg", "text"]
-    # - ["assets/ghibli.jpg", "text"]
-    # - ["assets/scream.jpg", "text"]
+    - ["assets/house_by_lake.jpg", "text"]
+    - ["assets/ghibli.jpg", "text"]
+    - ["assets/scream.jpg", "text"]
 
   replicate: 1
 

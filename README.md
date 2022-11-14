@@ -45,7 +45,7 @@ According to VD, we further proposed a generalized multi-flow multimodal framewo
 
 ## Data
 
-We use Laion2B-en with customized data filters as our main dataset. Since Laion2B is very large so typical models trained less than one epoch, we are the same.
+We use Laion2B-en with customized data filters as our main dataset. Since Laion2B is very large and typical trainings are less than one epoch, so usually we don't need to download the full dataset for training. Same story for VDs.
 
 Directory of Laion2B for our code:
 
@@ -67,7 +67,7 @@ These compressed data is generate with img2dataset API [official github link](ht
 ```
 conda create -n versatile-diffusion python=3.8
 conda activate versatile-diffusion
-conda install pytorch==1.8.0 torchvision==0.9.0 torchaudio==0.8.0 cudatoolkit=11.1 -c pytorch -c conda-forge
+conda install pytorch==1.12.1 torchvision=0.13.1 -c pytorch
 pip install -r requirement.txt
 ```
 

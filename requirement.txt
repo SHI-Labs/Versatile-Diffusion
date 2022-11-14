@@ -10,3 +10,7 @@ lpips==0.1.3
 tqdm==4.60.0
 transformers==4.19.2
 torchmetrics==0.7.3
+
+einops==0.3.0
+omegaconf==2.1.1
+-e git+https://github.com/CompVis/taming-transformers.git@master#egg=taming-transformers
