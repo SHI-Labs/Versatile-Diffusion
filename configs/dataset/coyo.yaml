@@ -1,0 +1,21 @@
+coyo:
+  symbol: coyo
+  root_dir: data/coyo/
+  pin_memory: true
+
+coyo_dummy:
+  super_cfg: coyo
+  type: coyo_dummy
+
+###############################
+# webdataset based dataloader #
+###############################
+
+coyo_webdataset:
+  super_cfg: coyo
+  type: coyo_webdataset
+
+coyo_webdataset_512:
+  super_cfg: coyo_webdataset
+  scale: 512
+  min_size: 448

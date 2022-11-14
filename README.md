@@ -8,6 +8,7 @@ This repo hosts the official implementary of:
 
 ## News
 
+- [2022.11.14]: Part of our evaluation codes and models are released!
 - [2022.11.12]: Repo initiated
 
 ## Introduction
@@ -24,7 +25,7 @@ This repo hosts the official implementary of:
 One single flow of VD contains a VAE, a diffusor and a context encoder, and thus handles one tasks (e.g. text-to-image) under one data type (e.g. image) and one context type (e.g. text). And the multi-flow structure of VD shows in the following diagram:
 
 <p align="center">
-  <img src="assets/figures/VD framework.png" width="99%">
+  <img src="assets/figures/VD_framework.png" width="99%">
 </p>
 
 According to VD, we further proposed a generalized multi-flow multimodal framework with VAEs, context encoders, and diffusors that contains three types of layers (i.e. global, data, context layers). To involve a new multimodal task in this framework, we bring out the following requirements:
@@ -63,15 +64,49 @@ These compressed data is generate with img2dataset API [official github link](ht
 
 ## Setup
 
-Coming soon
+```
+conda create -n versatile-diffusion python=3.8
+conda activate versatile-diffusion
+conda install pytorch==1.8.0 torchvision==0.9.0 torchaudio==0.8.0 cudatoolkit=11.1 -c pytorch -c conda-forge
+pip install -r requirement.txt
+```
 
 ## Pretrained models
 
-Coming soon
+All useful pretrained model can be download at this [link](https://drive.google.com/drive/folders/1SloRnOO9UnonfvubPWfw0uFpLco_2JvH?usp=sharing). The pretrained folder should include the following files:
+
+```
+├── pretrained
+│   └── kl-f8.pth
+│   └── optimus-vae.pth
+│   └── sd-v1-4.pth
+│   └── sd-variation-ema.pth
+│   └── vd-dc.pth
+│   └── vd-official.pth
+```
 
 ## Evaluation
 
-Coming soon
+Here are the one-line shell commends to evaluation SD baselines with mutliple GPUs.
+
+```
+python main.py --config sd_eval --gpu 0 1 2 3 4 5 6 7 --eval 99999
+python main.py --config sd_variation_eval --gpu 0 1 2 3 4 5 6 7 --eval 99999
+```
+
+Here are the one-line shell commends to evaluation VD models on multiple GPUs.
+
+```
+python main.py --config vd_dc_eval --gpu 0 1 2 3 4 5 6 7 --eval 99999
+python main.py --config vd_official_eval --gpu 0 1 2 3 4 5 6 7 --eval 99999
+```
+
+All corresponding evaluation configs can be found in ```./configs/experiment```. There are many useful information in the config. You can easy customized it and run your own batched evaluations.
+
+For the commends above, you also need to:
+* Create ```./pretrained``` and move all downloaded pretrained models in it.
+* Create ```./log/sd_nodataset/99999_eval``` for baseline evaluations on SD
+* Create ```./log/vd_nodataset/99999_eval``` for evaluations on VD
 
 ## Training
 

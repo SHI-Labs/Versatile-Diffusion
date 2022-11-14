@@ -1,0 +1,57 @@
+env:
+  debug: false
+  cuda: true
+  dist_backend: nccl
+  matplotlib_mode: agg
+  log_root_dir: log
+  rnd_seed: 200
+
+model: MODEL(vd_dc_noema)
+
+eval:
+  main: lib.experiments.vd_default.eval
+  stage: lib.experiments.vd_default.eval_stage_dc
+  dataset: null
+  save_code: true
+
+  conditioning:
+    - a dream of a village in china, by Caspar David Friedrich, matte painting trending on artstation HQ
+    # - a beautiful grand nebula in the universe
+    # - area of rocks that deep inside the forest, divine domain
+    # - heavy arms gundam penguin mech
+    # - realistic scenery of houston texas city view under a starry sky in hyperrealistic style and ultra HD, 8k
+    # - red maple on a hill in golden autumn
+    # - man standing on the beach near sea
+    # - blue and yellow balloons in the sky
+    - assets/benz.jpg
+    # - assets/ghibli.jpg
+    # - assets/horse.png
+    # - assets/matisse.jpg
+    # - assets/penguin.png
+    # - assets/scream.jpg
+    # - assets/space.jpg
+    # - assets/vermeer.jpg
+
+  replicate: 1
+
+  sample:
+    output_dim: [512, 512]
+    n_samples: 4
+    ddim_steps: 50
+    ddim_eta: 0.0
+    scale: 7.5
+
+  color_adj: true
+  color_adj_keep_ratio: 0.5
+  color_adj_simple: true
+
+  batch_size_per_gpu: 0
+  batch_size: null
+  dataset_num_workers_per_gpu: 0
+  dataset_num_workers: null
+
+  pretrained_pth: pretrained/vd-dc.pth
+  strict_sd: true
+
+  fix_seed: true
+  eval_subdir: vd_dc

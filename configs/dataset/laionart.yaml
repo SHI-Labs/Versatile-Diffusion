@@ -1,0 +1,26 @@
+laionart:
+  symbol: laionart
+  type: laionart
+  root_dir: data/laionart/
+  pin_memory: true
+
+laionart_dummy:
+  super_cfg: laionart
+  type: laionart_dummy
+
+###############################
+# webdataset based dataloader #
+###############################
+
+laionart_webdataset:
+  super_cfg: laionart
+  type: laionart_webdataset
+
+laionart_webdataset_512:
+  super_cfg: laionart_webdataset
+  scale: 512
+  min_size: 448
+
+laionart_webdataset_512_debug:
+  super_cfg: laionart_webdataset_512
+  root_dir: data/laionart-debug/

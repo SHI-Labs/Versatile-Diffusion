@@ -1,0 +1,46 @@
+laion2b:
+  symbol: laion2b
+  type: laion2b
+  root_dir: data/laion2b/
+  pin_memory: true
+
+laion2b_dummy:
+  super_cfg: laion2b
+  type: laion2b_dummy
+
+###############################
+# webdataset based dataloader #
+###############################
+
+laion2b_webdataset:
+  super_cfg: laion2b
+  type: laion2b_webdataset
+
+laion2b_webdataset_256:
+  super_cfg: laion2b_webdataset
+  scale: 256
+  min_size: 224
+
+laion2b_webdataset_256_debug:
+  super_cfg: laion2b_webdataset_256
+  root_dir: data/laion2b-debug/
+
+laion2b_webdataset_512:
+  super_cfg: laion2b_webdataset
+  scale: 512
+  min_size: 448
+
+laion2b_webdataset_512_debug:
+  super_cfg: laion2b_webdataset_512
+  root_dir: data/laion2b-debug/
+
+laion2b_webdataset_512_sdofficial:
+  super_cfg: laion2b
+  type: laion2b_webdataset_sdofficial
+  scale: 512
+  min_size: 448
+
+laion2b_webdataset_512_sdofficial_debug:
+  super_cfg: laion2b_webdataset_512_sdofficial
+  root_dir: data/laion2b-debug/
+  shuffle: 0

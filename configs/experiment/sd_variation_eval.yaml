@@ -1,0 +1,57 @@
+env:
+  debug: false
+  cuda: true
+  dist_backend: nccl
+  matplotlib_mode: agg
+  log_root_dir: log
+  rnd_seed: 200
+
+model: MODEL(sd_variation)
+eval:
+  main: lib.experiments.sd_default.eval
+  stage: lib.experiments.sd_default.eval_stage_variation
+  dataset: null
+  save_code: true
+
+  conditioning: 
+    - assets/benz.jpg
+    - assets/ghibli.jpg
+    - assets/horse.png
+    - assets/matisse.jpg
+    - assets/penguin.png
+    - assets/scream.jpg
+    - assets/space.jpg
+    - assets/vermeer.jpg
+    - assets/boy_and_girl.jpg
+    - assets/church.jpg
+    - assets/firework.jpg
+    - assets/house_by_lake.jpg
+    - assets/night_light.jpg
+    - assets/san_diego.jpg
+    - assets/tiger.jpg
+    - assets/train.jpg
+
+  replicate: 1
+
+  sample:
+    output_dim: [512, 512]
+    n_samples: 4
+    ddim_steps: 50
+    ddim_eta: 0.0
+    scale: 7.5
+
+  color_adj: true
+  color_adj_keep_ratio: 0.5
+  color_adj_simple: true
+
+  batch_size_per_gpu: 0
+  batch_size: null
+  dataset_num_workers_per_gpu: 0
+  dataset_num_workers: null
+
+  pretrained_pth_ema: pretrained/sd-variation-ema.pth
+  strict_sd: true
+
+  is_lite: true
+  fix_seed: true
+  eval_subdir: sd_variation
