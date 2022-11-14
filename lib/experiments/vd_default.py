@@ -553,24 +553,23 @@ class eval_stage_dc(eval_stage_base):
 
 class eval_stage_i2t2i(eval_stage):
     def __init__(self):
-        from ..model_zoo.ddim_vd import DDIMSampler_AIOD_DC
-        self.sampler = DDIMSampler_AIOD_DC
+        from ..model_zoo.ddim_vd import DDIMSampler_VD_DualContext
+        self.sampler = DDIMSampler_VD_DualContext
 
     def __call__(self, **paras):
         cfg = cfguh().cfg
         cfgv = cfg.eval
 
         net = self.get_net(paras)
-        eval_cnt = paras.get('eval_cnt', None)
         fixed_seed = cfgv.get('fixed_seed', None)
 
         LRANK = sync.get_rank('local')
         LWSIZE = sync.get_world_size('local')
 
-        output_path = self.get_output_path()
+        output_path = self.get_image_path()
         self.create_dir(output_path)
         eval_cnt = paras.get('eval_cnt', None)
-        suffix=None if eval_cnt is None else str(eval_cnt)
+        suffix = '' if eval_cnt is None else '_'+str(eval_cnt)
 
         if isinstance(net, (torch.nn.DataParallel,
                             torch.nn.parallel.DistributedDataParallel)):
