@@ -347,7 +347,6 @@ class vd_inference(object):
         return x
 
 vd_inference = vd_inference('official')
-# vd_inference_dc = vd_inference('dc')
 
 def main(mode,
          image=None,
@@ -481,13 +480,13 @@ if True:
     with gr.Blocks() as demo:
         gr.HTML(
             """
-            <div style="text-align: center; max-width: 1000px; margin: 20px auto;">
+            <div style="text-align: center; max-width: 1200px; margin: 20px auto;">
             <h1 style="font-weight: 900; font-size: 3rem;">
                 Versatile Diffusion
             </h1>
             <br>
             <h2 style="font-weight: 450; font-size: 1rem;">
-            We built <b>Versatile Diffusion (VD), the first unified multi-flow multimodal diffusion framework<\b>, as a step towards <b>Universal Generative AI<\b>. 
+            We built <b>Versatile Diffusion (VD), the first unified multi-flow multimodal diffusion framework</b>, as a step towards <b>Universal Generative AI</b>. 
             VD can natively handle image-to-text, image-variation, text-to-image, and text-variation, 
             and can be further extended to other applications such as 
             semantic-style disentanglement, image-text dual-guided generation, latent image-to-text-to-image editing, and more. 
