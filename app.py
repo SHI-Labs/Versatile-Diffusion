@@ -487,7 +487,7 @@ if True:
             <br>
             <h2 style="font-weight: 450; font-size: 1rem;">
             We built <b>Versatile Diffusion (VD), the first unified multi-flow multimodal diffusion framework</b>, as a step towards <b>Universal Generative AI</b>. 
-            VD can natively handle image-to-text, image-variation, text-to-image, and text-variation, 
+            VD can natively support image-to-text, image-variation, text-to-image, and text-variation, 
             and can be further extended to other applications such as 
             semantic-style disentanglement, image-text dual-guided generation, latent image-to-text-to-image editing, and more. 
             Future versions will support more modalities such as speech, music, video and 3D. 
