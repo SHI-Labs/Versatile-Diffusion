@@ -438,8 +438,5 @@ class VD(DDPM):
         loss_dict['Loss'] = loss.item()
         return loss, loss_dict
 
-    def apply_model_ex(self, x_noisy, t, c_in, c_ex, xtype='image', c_in_type='image', c_ex_type='text', mixed_ratio=0.5):
-        return self.model.diffusion_model.forward_ex(x_noisy, t, c_in, c_ex, xtype, c_in_type, c_ex_type, mixed_ratio)
-
     def apply_model_dc(self, x_noisy, t, first_c, second_c, xtype='image', first_ctype='vision', second_ctype='prompt', mixed_ratio=0.5):
         return self.model.diffusion_model.forward_dc(x_noisy, t, first_c, second_c, xtype, first_ctype, second_ctype, mixed_ratio)

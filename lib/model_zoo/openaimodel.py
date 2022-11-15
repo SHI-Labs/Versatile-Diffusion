@@ -2523,62 +2523,6 @@ class UNetModelVD(nn.Module):
                 raise ValueError
         return h
 
-    # Added for exclude experiment
-    def forward_ex(self, x, timesteps, c_in, c_ex, xtype, c_in_type, c_ex_type):
-        hs = []
-        t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
-        emb = self.time_embed(t_emb)
-
-        if xtype == 'text':
-            x = x[:, :, None, None]
-        h = x
-        for i_module, t_module in zip(self.unet_image.input_blocks, self.unet_text.input_blocks):
-            h = self.mixed_run_ex(i_module, t_module, h, emb, c_in, c_ex, xtype, c_in_type, c_ex_type)
-            hs.append(h)
-        h = self.mixed_run_ex(
-            self.unet_image.middle_block, self.unet_text.middle_block, 
-            h, emb, c_in, c_ex, xtype, c_in_type, c_ex_type)
-        for i_module, t_module in zip(self.unet_image.output_blocks, self.unet_text.output_blocks):
-            h = th.cat([h, hs.pop()], dim=1)
-            h = self.mixed_run_ex(i_module, t_module, h, emb, c_in, c_ex, xtype, c_in_type, c_ex_type)
-        if xtype == 'image':
-            return self.unet_image.out(h)
-        elif xtype == 'text':
-            return self.unet_text.out(h).squeeze(-1).squeeze(-1)
-
-    # Added for exclude experiment
-    def mixed_run_ex(self, inet, tnet, x, emb, c_in, c_ex, xtype, c_in_type, c_ex_type):
-        h = x
-        for ilayer, tlayer in zip(inet, tnet):
-            if isinstance(ilayer, TimestepBlock) and xtype=='image':
-                h = ilayer(h, emb)
-            elif isinstance(tlayer, TimestepBlock) and xtype=='text':
-                h = tlayer(h, emb)
-            elif isinstance(ilayer, SpatialTransformer):
-                h_in = ilayer(h, c_in)-h if c_in_type=='vision' else tlayer(h, c_in)-h
-                h_ex = ilayer(h, c_ex)-h if c_ex_type=='vision' else tlayer(h, c_ex)-h
- 
-                h_in_shape = h_in.shape
-                h_in_vector = h_in.view(h_in_shape[0], -1)
-
-                h_ex_vector = h_ex.view(h_in_shape[0], -1)
-                h_ex_norm = h_ex_vector.norm(dim=1, keepdim=True)
-                h_ex_normalized = h_ex_vector/h_ex_norm
-
-                h_in_projected = (h_in_vector * h_ex_normalized).sum(dim=1, keepdim=True) * h_ex_normalized
-                h_in_perpendicular = h_in_vector - h_in_projected
-
-                h = h_in_perpendicular.view(h_in_shape) + h
-
-            elif xtype=='image':
-                h = ilayer(h)
-            elif xtype == 'text':
-                h = tlayer(h)
-            else:
-                raise ValueError
-        return h
-
-    # Added for exclude experiment
     def forward_dc(self, x, timesteps, c0, c1, xtype, c0_type, c1_type, mixed_ratio):
         hs = []
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
@@ -2601,7 +2545,6 @@ class UNetModelVD(nn.Module):
         elif xtype == 'text':
             return self.unet_text.out(h).squeeze(-1).squeeze(-1)
 
-    # Added for exclude experiment
     def mixed_run_dc(self, inet, tnet, x, emb, c0, c1, xtype, c0_type, c1_type, mixed_ratio):
         h = x
         for ilayer, tlayer in zip(inet, tnet):
@@ -2612,7 +2555,7 @@ class UNetModelVD(nn.Module):
             elif isinstance(ilayer, SpatialTransformer):
                 h0 = ilayer(h, c0)-h if c0_type=='vision' else tlayer(h, c0)-h
                 h1 = ilayer(h, c1)-h if c1_type=='vision' else tlayer(h, c1)-h
-                h = h0*mixed_ratio + h1*(1 - mixed_ratio) + h
+                h = h0*mixed_ratio + h1*(1-mixed_ratio) + h
                 # h = ilayer(h, c0)
             elif xtype=='image':
                 h = ilayer(h)
