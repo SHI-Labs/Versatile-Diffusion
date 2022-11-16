@@ -105,7 +105,7 @@ python main.py --config vd_official_eval --gpu 0 1 2 3 4 5 6 7 --eval 99999
 
 All corresponding evaluation configs can be found in ```./configs/experiment```. There are useful information in the config. You can easy customized it and run your own batched evaluations.
 
-For the commends above, you also need to:
+For the commands above, you also need to:
 * Create ```./pretrained``` and move all downloaded pretrained models in it.
 * Create ```./log/sd_nodataset/99999_eval``` for baseline evaluations on SD
 * Create ```./log/vd_nodataset/99999_eval``` for evaluations on VD
