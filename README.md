@@ -21,15 +21,15 @@ We built **Versatile Diffusion (VD), the first unified multi-flow multimodal dif
 
 ## Network and Framework
 
-One single flow of VD contains a VAE, a diffuser and a context encoder, and thus handles one tasks (e.g. text-to-image) under one data type (e.g. image) and one context type (e.g. text). And the multi-flow structure of VD shows in the following diagram:
+One single flow of VD contains a VAE, a diffuser, and a context encoder,  and thus handles one task (e.g., text-to-image) under one data type (e.g., image) and one context type (e.g., text). The multi-flow structure of VD shows in the following diagram:
 
 <p align="center">
   <img src="assets/figures/VD_framework.png" width="99%">
 </p>
 
-According to VD, we further proposed a generalized multi-flow multimodal framework with VAEs, context encoders, and diffusers that contains three types of layers (i.e. global, data, context layers). To involve a new multimodal task in this framework, we bring out the following requirements:
+According to VD, we further proposed a generalized multi-flow multimodal framework with VAEs, context encoders, and diffusers containing three layers (i.e., global, data, and context layers). To involve a new multimodal task in this framework, we bring out the following requirements:
 
-* The design of core diffuser should contain shared global layers, swappable data and context layers that will be correspondingly activated based on data and context types.
+* The design of the core diffuser should contain shared global layers, swappable data, and context layers that will be correspondingly activated based on data and context types.
 * The choice of VAEs should smoothly map data onto highly interpretable latent spaces.
 * The choice of context encoders should jointly minimize the cross-modal statistical distance on all supported content types.
 
@@ -44,7 +44,7 @@ According to VD, we further proposed a generalized multi-flow multimodal framewo
 
 ## Data
 
-We use Laion2B-en with customized data filters as our main dataset. Since Laion2B is very large and typical trainings are less than one epoch, so usually we don't need to download the full dataset for training. Same story for VDs.
+We use Laion2B-en with customized data filters as our main dataset. Since Laion2B is very large and typical training is less than one epoch, we usually do not need to download the complete dataset for training. Same story for VDs.
 
 Directory of Laion2B for our code:
 
@@ -59,7 +59,7 @@ Directory of Laion2B for our code:
 │           └── ...
 ```
 
-These compressed data is generate with img2dataset API [official github link](https://github.com/rom1504/img2dataset).
+These compressed data are generated with img2dataset API [official github link](https://github.com/rom1504/img2dataset).
 
 ## Setup
 
@@ -72,7 +72,7 @@ pip install -r requirement.txt
 
 ## Pretrained models
 
-All useful pretrained model can be downloaded from this [link](https://drive.google.com/drive/folders/1SloRnOO9UnonfvubPWfw0uFpLco_2JvH?usp=sharing). The pretrained folder should include the following files:
+All useful pretrained models can be downloaded from this [link](https://drive.google.com/drive/folders/1SloRnOO9UnonfvubPWfw0uFpLco_2JvH?usp=sharing). The pretrained folder should include the following files:
 
 ```
 ├── pretrained
@@ -86,21 +86,21 @@ All useful pretrained model can be downloaded from this [link](https://drive.goo
 
 ## Evaluation
 
-Here are the one-line shell commends to evaluation SD baselines with mutliple GPUs.
+Here are the one-line shell commands to evaluate SD baselines with multiple GPUs.
 
 ```
 python main.py --config sd_eval --gpu 0 1 2 3 4 5 6 7 --eval 99999
 python main.py --config sd_variation_eval --gpu 0 1 2 3 4 5 6 7 --eval 99999
 ```
 
-Here are the one-line shell commends to evaluation VD models on multiple GPUs.
+Here are the one-line shell commands to evaluate VD models with multiple GPUs.
 
 ```
 python main.py --config vd_dc_eval --gpu 0 1 2 3 4 5 6 7 --eval 99999
 python main.py --config vd_official_eval --gpu 0 1 2 3 4 5 6 7 --eval 99999
 ```
 
-All corresponding evaluation configs can be found in ```./configs/experiment```. There are many useful information in the config. You can easy customized it and run your own batched evaluations.
+All corresponding evaluation configs can be found in ```./configs/experiment```. There are useful information in the config. You can easy customized it and run your own batched evaluations.
 
 For the commends above, you also need to:
 * Create ```./pretrained``` and move all downloaded pretrained models in it.
