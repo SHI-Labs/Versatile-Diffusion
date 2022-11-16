@@ -13,12 +13,11 @@ This repo hosts the official implementary of:
 
 ## Introduction
 
+We built **Versatile Diffusion (VD), the first unified multi-flow multimodal diffusion framework**, as a step towards **Universal Generative AI**. VD can natively support image-to-text, image-variation, text-to-image, and text-variation, and can be further extended to other applications such as semantic-style disentanglement, image-text dual-guided generation, latent image-to-text-to-image editing, and more. Future versions will support more modalities such as speech, music, video and 3D.
+
 <p align="center">
   <img src="assets/figures/teaser.png" width="99%">
 </p>
-
-
-**Versatile Diffusion (VD)** is a four-flow diffusion model that parallely handles text-to-image, image-variation, image-to-text, and text-variation. From which we extended to a generalized multi-flow multimodal framework that can further be expanded into other modalities and other tasks, such as image-to-audio, audio-to-image.
 
 ## Network and Framework
 
