@@ -113,7 +113,17 @@ Coming soon
 
 ## Citation
 
-Coming soon
+```
+@article{xu2022versatile,
+	title        = {Versatile Diffusion: Text, Images and Variations All in One Diffusion Model},
+	author       = {Xingqian Xu, Zhangyang Wang, Eric Zhang, Kai Wang, Humphrey Shi},
+	year         = 2022,
+	url          = {https://arxiv.org/abs/2211.08332},
+	eprint       = {2211.08332},
+	archiveprefix = {arXiv},
+	primaryclass = {cs.CV}
+}
+```
 
 ## Acknowledgement
 
