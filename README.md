@@ -1,6 +1,8 @@
 # Versatile Diffusion
 
+[![Huggingface space](https://img.shields.io/badge/🤗-Huggingface%20Space-cyan.svg)](https://huggingface.co/spaces/shi-labs/Versatile-Diffusion)
 [![Framework: PyTorch](https://img.shields.io/badge/Framework-PyTorch-orange.svg)](https://pytorch.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 This repo hosts the official implementary of:
 
@@ -8,6 +10,7 @@ This repo hosts the official implementary of:
 
 ## News
 
+- **[2022.11.16]: Our demo is up and running on [🤗HuggingFace](https://huggingface.co/spaces/shi-labs/Versatile-Diffusion)!**
 - [2022.11.14]: Part of our evaluation code and models are released!
 - [2022.11.12]: Repo initiated
 
