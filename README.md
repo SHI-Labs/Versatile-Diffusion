@@ -107,8 +107,8 @@ All corresponding evaluation configs can be found in ```./configs/experiment```.
 
 For the commands above, you also need to:
 * Create ```./pretrained``` and move all downloaded pretrained models in it.
-* Create ```./log/sd_nodataset/99999_eval``` for baseline evaluations on SD
-* Create ```./log/vd_nodataset/99999_eval``` for evaluations on VD
+* Create ```./log/sd_nodataset/99999_eval``` for baseline evaluations on Stable Diffusion
+* Create ```./log/vd_nodataset/99999_eval``` for evaluations on Versatile Diffusion
 
 ## Training
 
