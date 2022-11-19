@@ -120,7 +120,7 @@ python inference.py --gpu 0 --app image-to-text --image assets/space.jpg --seed 
 python inference.py --gpu 0 --app text-variation --prompt "a pink car" --seed 8
 python inference.py --gpu 0 --app disentanglement --image assets/vermeer.jpg --seed 8 --save log/disentanglement.png --coloradj simple --dislevel -2
 python inference.py --gpu 0 --app dual-guided --image assets/benz.jpg --prompt "cyberpunk 2077" --seed 22 --save log/dual-guided.png --coloradj none --dgmixing 0.7
-python inference.py --gpu 0 --app i2t2i --image assets/ghibli.jpg --nprompt "white house" --ppromp "tall castle" --seed 20 --save log/i2t2i.png --coloradj simple
+python inference.py --gpu 0 --app i2t2i --image assets/ghibli.jpg --nprompt "white house" --pprompt "tall castle" --seed 20 --save log/i2t2i.png --coloradj simple
 ```
 
 ## Training
