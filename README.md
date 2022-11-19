@@ -116,25 +116,25 @@ Coming soon
 
 ## Gallary
 
-### Text-to-Image
+Text-to-Image
 
 <p align="center">
   <img src="assets/figures/gallary_t2i.png" width="99%">
 </p>
 
-### Image-Variation
+Image-Variation
 
 <p align="center">
   <img src="assets/figures/gallary_i2i_1.png" width="99%">
 </p>
 
-### Image-Variation with Semantic Focus
+Image-Variation with Semantic Focus
 
 <p align="center">
   <img src="assets/figures/gallary_i2i_2.png" width="99%">
 </p>
 
-### Dual-guided
+Dual-guided
 
 <p align="center">
   <img src="assets/figures/gallary_dual_guided.png" width="99%">
