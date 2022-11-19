@@ -110,6 +110,18 @@ For the commands above, you also need to:
 * Create ```./log/sd_nodataset/99999_eval``` for baseline evaluations on Stable Diffusion
 * Create ```./log/vd_nodataset/99999_eval``` for evaluations on Versatile Diffusion
 
+Besides, we provide a simple evaluation script ```inference.py``` that support all applications mentioned in the paper. Examples are below:
+
+```
+python inference.py --gpu 0 --app text-to-image --prompt "a dream of a village in china, by Caspar David Friedrich, matte painting trending on artstation HQ" --seed 0 --save log/text-to-image.png
+python inference.py --gpu 0 --app image-variation --image assets/space.jpg --seed 8 --save log/image-variation.png --coloradj simple
+python inference.py --gpu 0 --app image-to-text --image assets/space.jpg --seed 8
+python inference.py --gpu 0 --app text-variation --prompt "a pink car" --seed 8
+python inference.py --gpu 0 --app disentanglement --image assets/vermeer.jpg --seed 8 --save log/disentanglement.png --coloradj simple --dislevel -2
+python inference.py --gpu 0 --app dual-guided --image assets/benz.jpg --prompt "cyberpunk 2077" --seed 22 --save log/dual-guided.png --coloradj none --dgmixing 0.7
+python inference.py --gpu 0 --app i2t2i --image assets/ghibli.jpg --nprompt "white house" --ppromp "tall castle" --seed 20 --save log/i2t2i.png --coloradj simple
+```
+
 ## Training
 
 Coming soon
