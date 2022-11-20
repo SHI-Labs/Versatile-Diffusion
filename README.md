@@ -127,7 +127,7 @@ python inference.py --gpu 0 --app i2t2i --image assets/ghibli.jpg --nprompt "whi
 
 Coming soon
 
-## Gallary
+## Gallery
 
 Text-to-Image
 
