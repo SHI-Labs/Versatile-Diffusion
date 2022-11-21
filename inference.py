@@ -20,7 +20,7 @@ n_sample_image_default = 2
 n_sample_text_default = 4
 
 class vd_inference(object):
-    def __init__(self, type='official', device=0):
+    def __init__(self, type='official', device=0, dtype=torch.float16):
         if type in ['dc', '2-flow']:
             cfgm_name = 'vd_dc_noema'
             sampler = DDIMSampler_DualContext
@@ -33,8 +33,10 @@ class vd_inference(object):
         net = get_model()(cfgm)
 
         sd = torch.load(pth, map_location='cpu')
-        net.load_state_dict(sd, strict=False)        
-        net.to(device)
+        net.load_state_dict(sd, strict=False)      
+        if dtype == torch.float16:
+            net.half()
+        net.to(device=device)
         self.device = device
         self.model_name = cfgm_name
         self.net = net
