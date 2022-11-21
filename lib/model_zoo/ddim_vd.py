@@ -87,6 +87,7 @@ class DDIMSampler_VD(DDIMSampler):
                 noise_dropout=noise_dropout,
                 temperature=temperature,)
             pred_xt, pred_x0 = outs
+            pred_xt = pred_xt.to(conditioning.dtype)
 
             if index % log_every_t == 0 or index == total_steps - 1:
                 intermediates['pred_xt'].append(pred_xt)

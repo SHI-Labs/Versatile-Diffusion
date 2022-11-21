@@ -24,9 +24,7 @@ class vd_inference(object):
         cfgm = model_cfg_bank()('vd_noema')
         net = get_model()(cfgm)
         if fp16:
-            net.model.diffusion_model = net.model.diffusion_model.half()
-            net.autokl = net.autokl.half()
-            net.optimus = net.optimus.half()
+            net = net.half()
         sd = torch.load(pth, map_location='cpu')
         net.load_state_dict(sd, strict=False)
         print('Load pretrained weight from {}'.format(pth))
@@ -116,7 +114,6 @@ class vd_inference(object):
             u = None
             if scale != 1.0:
                 u = net.clip_encode_text(n_samples * [""])
-            c, u = [c.half(), u.half()] if self.fp16 else [c, u]
 
         elif ctype in ['vision', 'image']:
             cin = self.regularize_image(cin)
@@ -127,6 +124,8 @@ class vd_inference(object):
             if scale != 1.0:
                 dummy = torch.zeros_like(ctemp)
                 u = net.clip_encode_vision(dummy)
+
+        u, c = [u.half(), c.half()] if self.fp16 else [u, c]
 
         if xtype == 'image':
             h, w = [512, 512]
@@ -174,6 +173,7 @@ class vd_inference(object):
         if scale != 1.0:
             dummy = torch.zeros_like(ctemp)
             u = net.clip_encode_vision(dummy)
+        u, c = [u.half(), c.half()] if self.fp16 else [u, c]
 
         if level == 0:
             pass
@@ -266,6 +266,9 @@ class vd_inference(object):
         if scale != 1.0:
             utx = net.clip_encode_text(n_samples * [""])
 
+        uim, cim = [uim.half(), cim.half()] if self.fp16 else [uim, cim]
+        utx, ctx = [utx.half(), ctx.half()] if self.fp16 else [utx, ctx]
+
         h, w = [512, 512]
         shape = [n_samples, 4, h//8, w//8]
 
@@ -301,6 +304,8 @@ class vd_inference(object):
         if scale != 1.0:
             dummy = torch.zeros_like(ctemp1)
             uim = net.clip_encode_vision(dummy)
+
+        uim, cim = [uim.half(), cim.half()] if self.fp16 else [uim, cim]
 
         n = 768
         shape = [n_samples, n]
@@ -555,18 +560,21 @@ if __name__ == '__main__':
     #     else:
     #         imout.save(osp.join(args.save))
     #         print('Output image saved to {}.'.format(args.save))
+    #
+    # if txtout is not None:
+    #     print(txtout)
 
-    suffix = 'fp16testA'
-    for idx, (prompti, seedi) in enumerate([
-            ["a dream of a village in china, by Caspar David Friedrich, matte painting trending on artstation HQ", 23],
-            ["a beautiful grand nebula in the universe", 24],
-            ["heavy arms gundam penguin mech", 25],
-            ["red maple on a hill in golden autumn", 0], ]):
+    suffix = 'image-var'
+    for idx, (ci, seedi) in enumerate([
+            ["assets/space.jpg", 26],
+            ["assets/train.jpg", 27],
+            ["assets/benz.jpg", 20],
+            ["assets/ghibli.jpg", 20],]):
         imout, txtout = main(
             netwrapper=vd_wrapper,
             app=args.app,
-            image=args.image,
-            prompt=prompti,
+            image=ci,
+            prompt=args.prompt,
             nprompt=args.nprompt,
             pprompt=args.pprompt,
             color_adj=args.coloradj,
@@ -578,6 +586,3 @@ if __name__ == '__main__':
         imout = auto_merge_imlist([np.array(i) for i in imout])
         imout = PIL.Image.fromarray(imout)            
         imout.save(osp.join(args.save.replace('.png', '_{}_{}_seed{}.png'.format(suffix, idx, seedi))))
-
-    if txtout is not None:
-        print(txtout)

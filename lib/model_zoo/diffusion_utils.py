@@ -232,10 +232,12 @@ class HybridConditioner(nn.Module):
         c_crossattn = self.crossattn_conditioner(c_crossattn)
         return {'c_concat': [c_concat], 'c_crossattn': [c_crossattn]}
 
-def noise_like(shape, device, repeat=False):
-    repeat_noise = lambda: torch.randn((1, *shape[1:]), device=device).repeat(shape[0], *((1,) * (len(shape) - 1)))
-    noise = lambda: torch.randn(shape, device=device)
-    return repeat_noise() if repeat else noise()
+def noise_like(x, repeat=False):
+    noise = torch.randn_like(x)
+    if repeat:
+        bs = x.shape[0]
+        noise = noise[0:1].repeat(bs, *((1,) * (len(x.shape) - 1)))
+    return noise
 
 ##########################
 # inherit from ldm.utils #
