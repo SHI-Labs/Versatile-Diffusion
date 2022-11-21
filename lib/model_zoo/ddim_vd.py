@@ -58,7 +58,7 @@ class DDIMSampler_VD(DDIMSampler):
         device = self.model.device
         bs = shape[0]
         if xt is None:
-            xt = torch.randn(shape, device=device)
+            xt = torch.randn(shape, device=device, dtype=conditioning.dtype)
 
         if timesteps is None:
             timesteps = self.ddpm_num_timesteps if ddim_use_original_steps else self.ddim_timesteps
@@ -141,7 +141,6 @@ class DDIMSampler_VD(DDIMSampler):
         x_prev = a_prev.sqrt() * pred_x0 + dir_xt + noise
         return x_prev, pred_x0
 
-class DDIMSampler_VD_DualContext(DDIMSampler_VD):
     @torch.no_grad()
     def sample_dc(self,
                steps,

@@ -2483,7 +2483,7 @@ class UNetModelVD(nn.Module):
     def forward(self, x, timesteps, context, xtype='image', ctype='prompt'):
         hs = []
         t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
-        emb = self.time_embed(t_emb)
+        emb = self.time_embed(t_emb.to(x.dtype))
 
         if xtype == 'text':
             x = x[:, :, None, None]

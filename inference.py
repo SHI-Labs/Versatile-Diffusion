@@ -10,7 +10,6 @@ import torch
 import torchvision.transforms as tvtrans
 from lib.cfg_helper import model_cfg_bank
 from lib.model_zoo import get_model
-from lib.model_zoo.ddim_vd import DDIMSampler_VD, DDIMSampler_VD_DualContext
 from lib.model_zoo.ddim_dualcontext import DDIMSampler_DualContext
 from lib.experiments.sd_default import color_adjust, auto_merge_imlist
 
@@ -20,25 +19,25 @@ n_sample_image_default = 2
 n_sample_text_default = 4
 
 class vd_inference(object):
-    def __init__(self, type='official', device=0):
-        if type in ['dc', '2-flow']:
-            cfgm_name = 'vd_dc_noema'
-            sampler = DDIMSampler_DualContext
-            pth = 'pretrained/vd-dc.pth'
-        elif type in ['official', '4-flow']:
-            cfgm_name = 'vd_noema'
-            sampler = DDIMSampler_VD
-            pth = 'pretrained/vd-official.pth'
-        cfgm = model_cfg_bank()(cfgm_name)
+    def __init__(self, pth='pretrained/vd1.0-four-flow.pth', fp16=False, device=0):
+        cfgm_name = 'vd_noema'
+        cfgm = model_cfg_bank()('vd_noema')
         net = get_model()(cfgm)
-
+        if fp16:
+            net.model.diffusion_model = net.model.diffusion_model.half()
+            net.autokl = net.autokl.half()
+            net.optimus = net.optimus.half()
         sd = torch.load(pth, map_location='cpu')
-        net.load_state_dict(sd, strict=False)        
+        net.load_state_dict(sd, strict=False)
+        print('Load pretrained weight from {}'.format(pth))
         net.to(device)
+
         self.device = device
         self.model_name = cfgm_name
         self.net = net
-        self.sampler = sampler(net)
+        self.fp16 = fp16
+        from lib.model_zoo.ddim_vd import DDIMSampler_VD
+        self.sampler = DDIMSampler_VD(net)
 
     def regularize_image(self, x):
         BICUBIC = PIL.Image.Resampling.BICUBIC
@@ -59,6 +58,8 @@ class vd_inference(object):
         assert (x.shape[1]==512) & (x.shape[2]==512), \
             'Wrong image size'
         x = x.to(self.device)
+        if self.fp16:
+            x = x.half()
         return x
 
     def decode(self, z, xtype, ctype, color_adj='None', color_adj_to=None):
@@ -115,6 +116,7 @@ class vd_inference(object):
             u = None
             if scale != 1.0:
                 u = net.clip_encode_text(n_samples * [""])
+            c, u = [c.half(), u.half()] if self.fp16 else [c, u]
 
         elif ctype in ['vision', 'image']:
             cin = self.regularize_image(cin)
@@ -245,7 +247,7 @@ class vd_inference(object):
     def application_dualguided(self, cim, ctx, n_samples=None, mixing=0.5, color_adj=None, ):
         net = self.net
         scale = 7.5
-        sampler = DDIMSampler_VD_DualContext(net)
+        sampler = self.sampler
         ddim_steps = 50
         ddim_eta = 0.0
         n_samples = n_sample_image_default if n_samples is None else n_samples
@@ -285,7 +287,7 @@ class vd_inference(object):
     def application_i2t2i(self, cim, ctx_n, ctx_p, n_samples=None, color_adj=None,):
         net = self.net
         scale = 7.5
-        sampler = DDIMSampler_VD_DualContext(net)
+        sampler = self.sampler
         ddim_steps = 50
         ddim_eta = 0.0
         prompt_temperature = 1.0
@@ -460,59 +462,9 @@ def main(netwrapper,
                 color_adj = color_adj,
                 n_samples = n_samples, )
         return rv, None
+    
     else:
         assert False, "No such mode!"
-
-def examples(netwrapper):
-    imout, _ = main(
-        netwrapper=vd_wrapper,
-        app='text-to-image',
-        prompt='a dream of a village in china, by Caspar David Friedrich, matte painting trending on artstation HQ',
-        n_samples=2,
-        seed=0,)
-    imout = auto_merge_imlist([np.array(i) for i in imout])
-    imout = PIL.Image.fromarray(imout)
-    imout.save(osp.join(args.save, 'log/example_0.png'))
-
-    imout, _ = main(
-        netwrapper=vd_wrapper,
-        app='image-variation',
-        prompt='assets/space.jpg',
-        color_adj='none',
-        n_samples=2,
-        seed=0,)
-    imout = auto_merge_imlist([np.array(i) for i in imout])
-    imout = PIL.Image.fromarray(imout)
-    imout.save(osp.join(args.save, 'log/example_1-0.png'))
-
-    imout, _ = main(
-        netwrapper=vd_wrapper,
-        app='image-variation',
-        prompt='assets/space.jpg',
-        color_adj='simple',
-        n_samples=2,
-        seed=0,)
-    imout = auto_merge_imlist([np.array(i) for i in imout])
-    imout = PIL.Image.fromarray(imout)
-    imout.save(osp.join(args.save, 'log/example_1-1.png'))
-
-    _, txtout = main(
-        netwrapper=vd_wrapper,
-        app='image-to-text',
-        prompt='assets/space.jpg',
-        n_samples=2,
-        seed=0,)
-    with open('log/example_3.txt', 'w') as f:
-        f.write('\n'.join(txtout))
-
-    _, txtout = main(
-        netwrapper=vd_wrapper,
-        app='text-variation',
-        prompt='a dream of a village in china, by Caspar David Friedrich, matte painting trending on artstation HQ',
-        n_samples=2,
-        seed=0,)
-    with open('log/example_2.txt', 'w') as f:
-        f.write('\n'.join(txtout))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -522,63 +474,110 @@ if __name__ == '__main__':
              "text-to-image, image-variation, "\
              "image-to-text, text-variation, "\
              "disentanglement, dual-guided, i2t2i]")
+
     parser.add_argument(
         "--model", type=str, default="official",
         help="Choose the model type from ["\
              "dc, official]")
+
     parser.add_argument(
         "--prompt", type=str, 
         default="a dream of a village in china, by Caspar "\
                 "David Friedrich, matte painting trending on artstation HQ")
+
     parser.add_argument("--image", type=str)
+
     parser.add_argument("--nprompt", type=str)
+
     parser.add_argument("--pprompt", type=str)
+
     parser.add_argument("--coloradj", type=str, default='simple')
+
     parser.add_argument("--dislevel", type=int, default=0)
+
     parser.add_argument("--dgmixing", type=float, default=0.7)
+
     parser.add_argument("--nsample", type=int, default=4)
+
     parser.add_argument("--seed", type=int)
+
     parser.add_argument("--save", type=str, default='log',
         help="The path or file the result will save into")
+
     parser.add_argument("--gpu", type=int, default=0)
+
+    parser.add_argument("--fp16", action="store_true")
+
+    parser.add_argument("--pth", type=str, default='pretrained/vd1.0-four-flow.pth')
 
     args = parser.parse_args()
 
-    assert args.model in ['dc', 'official'], \
-        "So far only dc and official model is supported"
     assert args.app in [
             "text-to-image", "image-variation",
             "image-to-text", "text-variation",
             "disentanglement", "dual-guided", "i2t2i"], \
-        "Unknown app"
+        "Unknown app! Select from [text-to-image, image-variation, "\
+        "image-to-text, text-variation, "\
+        "disentanglement, dual-guided, i2t2i]"
 
-    if torch.cuda.is_available():
-        vd_wrapper = vd_inference(args.model, device=args.gpu)
+    device=args.gpu if torch.cuda.is_available() else 'cpu'
+
+    if args.model in ['4-flow', 'official']:
+        vd_wrapper = vd_inference(pth=args.pth, fp16=args.fp16, device=device)
+    elif args.model in ['2-flow', 'dc']:
+        raise NotImplementedError
+        # vd_wrapper = vd_dc_inference(args.model, pth=args.pth, device=device)
+    elif args.model in ['basic', '1-flow']:
+        raise NotImplementedError
+        # vd_wrapper = vd_basic_inference(args.model, pth=args.pth, device=device)
     else:
-        vd_wrapper = vd_inference(args.model, device='cpu')
+        assert False, "No such model! Select model from [4-flow(official), 2-flow(dc), 1-flow(basic)]"
 
-    imout, txtout = main(
-        netwrapper=vd_wrapper,
-        app=args.app,
-        image=args.image,
-        prompt=args.prompt,
-        nprompt=args.nprompt,
-        pprompt=args.pprompt,
-        color_adj=args.coloradj,
-        disentanglement_level=args.dislevel,
-        dual_guided_mixing=args.dgmixing,
-        n_samples=args.nsample,
-        seed=args.seed,)
+    # imout, txtout = main(
+    #     netwrapper=vd_wrapper,
+    #     app=args.app,
+    #     image=args.image,
+    #     prompt=args.prompt,
+    #     nprompt=args.nprompt,
+    #     pprompt=args.pprompt,
+    #     color_adj=args.coloradj,
+    #     disentanglement_level=args.dislevel,
+    #     dual_guided_mixing=args.dgmixing,
+    #     n_samples=args.nsample,
+    #     seed=args.seed,)
 
-    if imout is not None:
+    # if imout is not None:
+    #     imout = auto_merge_imlist([np.array(i) for i in imout])
+    #     imout = PIL.Image.fromarray(imout)
+    #     if osp.isdir(args.save):
+    #         imout.save(osp.join(args.save, 'imout.png'))
+    #         print('Output image saved to {}.'.format(osp.join(args.save, 'imout.png')))
+    #     else:
+    #         imout.save(osp.join(args.save))
+    #         print('Output image saved to {}.'.format(args.save))
+
+    suffix = 'fp16testA'
+    for idx, (prompti, seedi) in enumerate([
+            ["a dream of a village in china, by Caspar David Friedrich, matte painting trending on artstation HQ", 23],
+            ["a beautiful grand nebula in the universe", 24],
+            ["heavy arms gundam penguin mech", 25],
+            ["red maple on a hill in golden autumn", 0], ]):
+        imout, txtout = main(
+            netwrapper=vd_wrapper,
+            app=args.app,
+            image=args.image,
+            prompt=prompti,
+            nprompt=args.nprompt,
+            pprompt=args.pprompt,
+            color_adj=args.coloradj,
+            disentanglement_level=args.dislevel,
+            dual_guided_mixing=args.dgmixing,
+            n_samples=args.nsample,
+            seed=seedi,)
+
         imout = auto_merge_imlist([np.array(i) for i in imout])
-        imout = PIL.Image.fromarray(imout)
-        if osp.isdir(args.save):
-            imout.save(osp.join(args.save, 'imout.png'))
-            print('Output image saved to {}.'.format(osp.join(args.save, 'imout.png')))
-        else:
-            imout.save(osp.join(args.save))
-            print('Output image saved to {}.'.format(args.save))
+        imout = PIL.Image.fromarray(imout)            
+        imout.save(osp.join(args.save.replace('.png', '_{}_{}_seed{}.png'.format(suffix, idx, seedi))))
 
     if txtout is not None:
         print(txtout)
