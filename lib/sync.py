@@ -1,4 +1,10 @@
-from multiprocessing import shared_memory
+import multiprocessing
+if hasattr(multiprocessing, "shared_memory"):
+    from multiprocessing import shared_memory
+else:
+    # workaround for single gpu inference on colab
+    shared_memory = None
+
 import random
 import pickle
 import time

@@ -58,7 +58,7 @@ class DDIMSampler_VD(DDIMSampler):
         device = self.model.device
         bs = shape[0]
         if xt is None:
-            xt = torch.randn(shape, device=device)
+            xt = torch.randn(shape, device=device, dtype=conditioning.dtype)
 
         if timesteps is None:
             timesteps = self.ddpm_num_timesteps if ddim_use_original_steps else self.ddim_timesteps
@@ -87,6 +87,7 @@ class DDIMSampler_VD(DDIMSampler):
                 noise_dropout=noise_dropout,
                 temperature=temperature,)
             pred_xt, pred_x0 = outs
+            pred_xt = pred_xt.to(conditioning.dtype)
 
             if index % log_every_t == 0 or index == total_steps - 1:
                 intermediates['pred_xt'].append(pred_xt)
