@@ -86,8 +86,10 @@ All useful pretrained models can be downloaded from this [link](https://drive.go
 │   └── sd-variation-ema.pth
 │   └── vd-dc.pth
 │   └── vd-four-flow-v1-0.pth (originally named vd-official.pth)
-│   └── vd-four-flow-v1-0-fp16.pth (the model with float16 weights, and half the size)
+│   └── vd-four-flow-v1-0-fp16.pth
 ```
+
+Model named with **-fp16** are models with float16 parameters and correpondingly used in ```--fp16``` evaluation. The float16 models are half of the size comparing to the float32 models.
 
 ## Evaluation
 
