@@ -2470,11 +2470,11 @@ class UNetModel0D_MultiDim(nn.Module):
 class UNetModelVD(nn.Module):
     def __init__(self,
                  unet_image_cfg,  
-                 unet_test_cfg, ):
+                 unet_text_cfg, ):
 
         super().__init__()
         self.unet_image = get_model()(unet_image_cfg)
-        self.unet_text = get_model()(unet_test_cfg)
+        self.unet_text = get_model()(unet_text_cfg)
         self.time_embed = self.unet_image.time_embed
         del self.unet_image.time_embed
         del self.unet_text.time_embed

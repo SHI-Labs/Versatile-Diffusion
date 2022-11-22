@@ -68,5 +68,5 @@ openai_unet_vd:
   type: openai_unet_vd
   args:
     unet_image_cfg: MODEL(openai_unet_2d)
-    unet_test_cfg: MODEL(openai_unet_0dmd)
+    unet_text_cfg: MODEL(openai_unet_0dmd)
   

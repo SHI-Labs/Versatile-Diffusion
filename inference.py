@@ -540,7 +540,7 @@ if __name__ == '__main__':
 
     parser.add_argument("--fp16", action="store_true")
 
-    parser.add_argument("--pth", type=str, default='pretrained/vd1.0-four-flow.pth')
+    # parser.add_argument("--pth", type=str, default='pretrained/vd-four-flow-v1-0.pth')
 
     args = parser.parse_args()
 
@@ -555,7 +555,11 @@ if __name__ == '__main__':
     device=args.gpu if torch.cuda.is_available() else 'cpu'
 
     if args.model in ['4-flow', 'official']:
-        vd_wrapper = vd_inference(pth=args.pth, fp16=args.fp16, device=device)
+        if args.fp16:
+            pth='pretrained/vd-four-flow-v1-0-fp16.pth'
+        else:
+            pth='pretrained/vd-four-flow-v1-0.pth'
+        vd_wrapper = vd_inference(pth=pth, fp16=args.fp16, device=device)
     elif args.model in ['2-flow', 'dc']:
         raise NotImplementedError
         # vd_wrapper = vd_dc_inference(args.model, pth=args.pth, device=device)

@@ -55,9 +55,9 @@ eval:
   dataset_num_workers_per_gpu: 0
   dataset_num_workers: null
 
-  pretrained_pth: pretrained/vd-official.pth
+  pretrained_pth: pretrained/vd-four-flow-v1-0.pth
   strict_sd: true
 
   is_lite: true
   fix_seed: true
-  eval_subdir: vd_official
+  eval_subdir: vd-four-flow-v1-0-results

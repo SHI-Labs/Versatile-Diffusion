@@ -633,3 +633,74 @@ class SD_T2I(DDPM):
                                   return_intermediates=return_intermediates, x_T=x_T,
                                   verbose=verbose, timesteps=timesteps, quantize_denoised=quantize_denoised,
                                   mask=mask, x0=x0)
+
+@register('sd_variation', version)
+class SD_Variation(SD_T2I):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        def is_part_of_trans(name):
+            if name.find('.1.norm')!=-1:
+                return True
+            if name.find('.1.proj_in')!=-1:
+                return True
+            if name.find('.1.transformer_blocks')!=-1:
+                return True
+            if name.find('.1.proj_out')!=-1:
+                return True
+            return False
+
+        self.parameter_group = {
+            'transformers' : [v for n, v in self.model.named_parameters() if is_part_of_trans(n)],
+            'other' :[v for n, v in self.model.named_parameters() if not is_part_of_trans(n)],
+        }
+
+        self.encode_image = None
+        self.encode_text = None
+        self._predict_eps_from_xstart = None
+        self._prior_bpd = None
+        self.p_mean_variance = None
+        self.p_sample = None
+        self.progressive_denoising = None
+        self.p_sample_loop = None
+        self.sample = None
+
+    @torch.no_grad()
+    def encode_input(self, im):
+        encoder_posterior = self.first_stage_model.encode(im)
+        if isinstance(encoder_posterior, DiagonalGaussianDistribution):
+            z = encoder_posterior.sample()
+        elif isinstance(encoder_posterior, torch.Tensor):
+            z = encoder_posterior
+        else:
+            raise NotImplementedError("Encoder_posterior of type '{}' not yet implemented".format(type(encoder_posterior)))
+        return z * self.scale_factor
+
+    @torch.no_grad()
+    def decode_latent(self, z):
+        z = 1. / self.scale_factor * z
+        return self.first_stage_model.decode(z)
+
+    @torch.no_grad()
+    def clip_encode_vision(self, vision):
+        if isinstance(vision, list):
+            if not isinstance(vision[0], torch.Tensor):
+                import torchvision.transforms as tvtrans
+                vision = [tvtrans.ToTensor()(i) for i in vision]
+            vh = torch.stack(vision)
+        elif isinstance(vision, torch.Tensor):
+            vh = vision.unsqueeze(0) if (vision.shape==3) else vision
+            assert len(vh.shape) == 4
+        else:
+            raise ValueError
+        vh = vh.to(self.device)
+        return self.encode_conditioning(vh)
+
+    def encode_conditioning(self, c):
+        return self.cond_stage_model.encode(c)
+
+    def forward(self, x, c, noise=None):
+        t = torch.randint(0, self.num_timesteps, (x.shape[0],), device=x.device).long()
+        if self.cond_stage_trainable:
+            c = self.encode_conditioning(c)
+        return self.p_losses(x, c, t, noise)
