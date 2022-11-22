@@ -85,7 +85,8 @@ All useful pretrained models can be downloaded from this [link](https://drive.go
 │   └── sd-v1-4.pth
 │   └── sd-variation-ema.pth
 │   └── vd-dc.pth
-│   └── vd-official.pth
+│   └── vd-four-flow-v1-0.pth (originally named vd-official.pth)
+│   └── vd-four-flow-v1-0-fp16.pth (the model with float16 weights, and half the size)
 ```
 
 ## Evaluation
