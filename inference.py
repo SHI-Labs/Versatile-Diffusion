@@ -18,12 +18,21 @@ import argparse
 n_sample_image_default = 2
 n_sample_text_default = 4
 
+def highlight_print(info):
+    print('')
+    print(''.join(['#']*(len(info)+4)))
+    print('# '+info+' #')
+    print(''.join(['#']*(len(info)+4)))
+    print('')
+
 class vd_inference(object):
     def __init__(self, pth='pretrained/vd1.0-four-flow.pth', fp16=False, device=0):
         cfgm_name = 'vd_noema'
         cfgm = model_cfg_bank()('vd_noema')
         net = get_model()(cfgm)
         if fp16:
+            highlight_print('Running in FP16')
+            net.clip.fp16 = True
             net = net.half()
         sd = torch.load(pth, map_location='cpu')
         net.load_state_dict(sd, strict=False)
@@ -220,9 +229,18 @@ class vd_inference(object):
         else:
             x_input = x
 
+        if x_input.dtype == torch.float16:
+            fp16 = True
+            x_input = x_input.float()
+        else:
+            fp16 = False
+
         u, s, v = torch.pca_lowrank(x_input, q=q, center=False, niter=niter)
         ss = torch.stack([torch.diag(si) for si in s])
         x_lowrank = torch.bmm(torch.bmm(u, ss), torch.permute(v, [0, 2, 1]))        
+
+        if fp16:
+            x_lowrank = x_lowrank.half()
 
         if demean:
             x_lowrank += x_mean
@@ -235,10 +253,19 @@ class vd_inference(object):
         else:
             x_input = x
 
+        if x_input.dtype == torch.float16:
+            fp16 = True
+            x_input = x_input.float()
+        else:
+            fp16 = False
+
         u, s, v = torch.pca_lowrank(x_input, q=q, center=False, niter=niter)
         s[:, 0:q_remove] = 0
         ss = torch.stack([torch.diag(si) for si in s])
         x_lowrank = torch.bmm(torch.bmm(u, ss), torch.permute(v, [0, 2, 1]))        
+
+        if fp16:
+            x_lowrank = x_lowrank.half()
 
         if demean:
             x_lowrank += x_mean
@@ -532,57 +559,34 @@ if __name__ == '__main__':
     elif args.model in ['2-flow', 'dc']:
         raise NotImplementedError
         # vd_wrapper = vd_dc_inference(args.model, pth=args.pth, device=device)
-    elif args.model in ['basic', '1-flow']:
+    elif args.model in ['1-flow', 'basic']:
         raise NotImplementedError
         # vd_wrapper = vd_basic_inference(args.model, pth=args.pth, device=device)
     else:
         assert False, "No such model! Select model from [4-flow(official), 2-flow(dc), 1-flow(basic)]"
 
-    # imout, txtout = main(
-    #     netwrapper=vd_wrapper,
-    #     app=args.app,
-    #     image=args.image,
-    #     prompt=args.prompt,
-    #     nprompt=args.nprompt,
-    #     pprompt=args.pprompt,
-    #     color_adj=args.coloradj,
-    #     disentanglement_level=args.dislevel,
-    #     dual_guided_mixing=args.dgmixing,
-    #     n_samples=args.nsample,
-    #     seed=args.seed,)
+    imout, txtout = main(
+        netwrapper=vd_wrapper,
+        app=args.app,
+        image=args.image,
+        prompt=args.prompt,
+        nprompt=args.nprompt,
+        pprompt=args.pprompt,
+        color_adj=args.coloradj,
+        disentanglement_level=args.dislevel,
+        dual_guided_mixing=args.dgmixing,
+        n_samples=args.nsample,
+        seed=args.seed,)
 
-    # if imout is not None:
-    #     imout = auto_merge_imlist([np.array(i) for i in imout])
-    #     imout = PIL.Image.fromarray(imout)
-    #     if osp.isdir(args.save):
-    #         imout.save(osp.join(args.save, 'imout.png'))
-    #         print('Output image saved to {}.'.format(osp.join(args.save, 'imout.png')))
-    #     else:
-    #         imout.save(osp.join(args.save))
-    #         print('Output image saved to {}.'.format(args.save))
-    #
-    # if txtout is not None:
-    #     print(txtout)
-
-    suffix = 'image-var'
-    for idx, (ci, seedi) in enumerate([
-            ["assets/space.jpg", 26],
-            ["assets/train.jpg", 27],
-            ["assets/benz.jpg", 20],
-            ["assets/ghibli.jpg", 20],]):
-        imout, txtout = main(
-            netwrapper=vd_wrapper,
-            app=args.app,
-            image=ci,
-            prompt=args.prompt,
-            nprompt=args.nprompt,
-            pprompt=args.pprompt,
-            color_adj=args.coloradj,
-            disentanglement_level=args.dislevel,
-            dual_guided_mixing=args.dgmixing,
-            n_samples=args.nsample,
-            seed=seedi,)
-
+    if imout is not None:
         imout = auto_merge_imlist([np.array(i) for i in imout])
-        imout = PIL.Image.fromarray(imout)            
-        imout.save(osp.join(args.save.replace('.png', '_{}_{}_seed{}.png'.format(suffix, idx, seedi))))
+        imout = PIL.Image.fromarray(imout)
+        if osp.isdir(args.save):
+            imout.save(osp.join(args.save, 'imout.png'))
+            print('Output image saved to {}.'.format(osp.join(args.save, 'imout.png')))
+        else:
+            imout.save(osp.join(args.save))
+            print('Output image saved to {}.'.format(args.save))
+    
+    if txtout is not None:
+        print(txtout)

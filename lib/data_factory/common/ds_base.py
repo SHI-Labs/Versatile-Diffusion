@@ -13,13 +13,14 @@ from ...cfg_holder import cfg_unique_holder as cfguh
 from ...log_service import print_log
 
 import torch.distributed as dist
+from multiprocessing import shared_memory
 
-import multiprocessing
-if hasattr(multiprocessing, "shared_memory"):
-    from multiprocessing import shared_memory
-else:
-    # workaround for single gpu inference on colab
-    shared_memory = None
+# import multiprocessing
+# if hasattr(multiprocessing, "shared_memory"):
+#     from multiprocessing import shared_memory
+# else:
+#     # workaround for single gpu inference on colab
+#     shared_memory = None
     
 import pickle
 import hashlib

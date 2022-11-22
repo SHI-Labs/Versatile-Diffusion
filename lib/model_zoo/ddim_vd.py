@@ -87,7 +87,6 @@ class DDIMSampler_VD(DDIMSampler):
                 noise_dropout=noise_dropout,
                 temperature=temperature,)
             pred_xt, pred_x0 = outs
-            pred_xt = pred_xt.to(conditioning.dtype)
 
             if index % log_every_t == 0 or index == total_steps - 1:
                 intermediates['pred_xt'].append(pred_xt)
@@ -128,15 +127,15 @@ class DDIMSampler_VD(DDIMSampler):
         elif xtype == 'text':
             extended_shape = (b, 1)
 
-        a_t = torch.full(extended_shape, alphas[index], device=device)
-        a_prev = torch.full(extended_shape, alphas_prev[index], device=device)
-        sigma_t = torch.full(extended_shape, sigmas[index], device=device)
-        sqrt_one_minus_at = torch.full(extended_shape, sqrt_one_minus_alphas[index],device=device)
+        a_t = torch.full(extended_shape, alphas[index], device=device, dtype=x.dtype)
+        a_prev = torch.full(extended_shape, alphas_prev[index], device=device, dtype=x.dtype)
+        sigma_t = torch.full(extended_shape, sigmas[index], device=device, dtype=x.dtype)
+        sqrt_one_minus_at = torch.full(extended_shape, sqrt_one_minus_alphas[index], device=device, dtype=x.dtype)
 
         # current prediction for x_0
         pred_x0 = (x - sqrt_one_minus_at * e_t) / a_t.sqrt()
         dir_xt = (1. - a_prev - sigma_t**2).sqrt() * e_t
-        noise = sigma_t * noise_like(x.shape, device, repeat_noise) * temperature
+        noise = sigma_t * noise_like(x, repeat_noise) * temperature
         if noise_dropout > 0.:
             noise = torch.nn.functional.dropout(noise, p=noise_dropout)
         x_prev = a_prev.sqrt() * pred_x0 + dir_xt + noise
@@ -198,7 +197,7 @@ class DDIMSampler_VD(DDIMSampler):
         device = self.model.device
         bs = shape[0]
         if xt is None:
-            xt = torch.randn(shape, device=device)
+            xt = torch.randn(shape, device=device, dtype=first_conditioning[1].dtype)
 
         if timesteps is None:
             timesteps = self.ddpm_num_timesteps if ddim_use_original_steps else self.ddim_timesteps
@@ -263,8 +262,6 @@ class DDIMSampler_VD(DDIMSampler):
         e_t_uncond, e_t = self.model.apply_model_dc(
             x_in, t_in, first_c, second_c, xtype=xtype, first_ctype=first_ctype, second_ctype=second_ctype, mixed_ratio=mixed_ratio).chunk(2)
 
-        # e_t_uncond, e_t = self.model.apply_model(x_in, t_in, first_c, xtype='image', ctype='vision').chunk(2)
-
         e_t = e_t_uncond + unconditional_guidance_scale * (e_t - e_t_uncond)
 
         alphas = self.model.alphas_cumprod if use_original_steps else self.ddim_alphas
@@ -278,15 +275,15 @@ class DDIMSampler_VD(DDIMSampler):
         elif xtype == 'text':
             extended_shape = (b, 1)
 
-        a_t = torch.full(extended_shape, alphas[index], device=device)
-        a_prev = torch.full(extended_shape, alphas_prev[index], device=device)
-        sigma_t = torch.full(extended_shape, sigmas[index], device=device)
-        sqrt_one_minus_at = torch.full(extended_shape, sqrt_one_minus_alphas[index],device=device)
+        a_t = torch.full(extended_shape, alphas[index], device=device, dtype=x.dtype)
+        a_prev = torch.full(extended_shape, alphas_prev[index], device=device, dtype=x.dtype)
+        sigma_t = torch.full(extended_shape, sigmas[index], device=device, dtype=x.dtype)
+        sqrt_one_minus_at = torch.full(extended_shape, sqrt_one_minus_alphas[index], device=device, dtype=x.dtype)
 
         # current prediction for x_0
         pred_x0 = (x - sqrt_one_minus_at * e_t) / a_t.sqrt()
         dir_xt = (1. - a_prev - sigma_t**2).sqrt() * e_t
-        noise = sigma_t * noise_like(x.shape, device, repeat_noise) * temperature
+        noise = sigma_t * noise_like(x, repeat_noise) * temperature
         if noise_dropout > 0.:
             noise = torch.nn.functional.dropout(noise, p=noise_dropout)
         x_prev = a_prev.sqrt() * pred_x0 + dir_xt + noise

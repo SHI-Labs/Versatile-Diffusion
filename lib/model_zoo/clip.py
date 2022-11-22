@@ -49,49 +49,22 @@ class FrozenCLIPTextEmbedder(AbstractEncoder):
     def encode(self, text):
         return self(text)
 
-from transformers import CLIPProcessor, CLIPVisionModel
-
-@register('clip_vision_frozen', version)
-class FrozenCLIPVisionEmbedder(AbstractEncoder):
-    def __init__(self, version="openai/clip-vit-large-patch14", device="cuda", max_length=77):  # clip-vit-base-patch32
-        super().__init__()
-        self.processor = CLIPProcessor.from_pretrained(version)
-        self.transformer = CLIPVisionModel.from_pretrained(version)
-        self.device = device
-        self.max_length = max_length   # TODO: typical value?
-        self.freeze()
-
-    def freeze(self):
-        self.transformer = self.transformer.eval()
-        #self.train = disabled_train
-        for param in self.parameters():
-            param.requires_grad = False
-
-    def forward(self, images):
-        inputs = self.processor(images=images, return_tensors="pt")
-        pixels = inputs['pixel_values'].to(self.device)
-        outputs = self.transformer(pixel_values=pixels)
-        z = outputs.last_hidden_state
-        return z
-
-    def encode(self, image):
-        return self(image)
-
-from transformers import CLIPModel
+from transformers import CLIPProcessor, CLIPModel
 
 @register('clip_frozen', version)
 class FrozenCLIP(AbstractEncoder):
     def __init__(self, 
                  version="openai/clip-vit-large-patch14", 
                  max_length=77, 
-                 encode_type='encode_text',):  # clip-vit-base-patch32
+                 encode_type='encode_text',
+                 fp16=False, ):
         super().__init__()
         self.tokenizer = CLIPTokenizer.from_pretrained(version)
         self.processor = CLIPProcessor.from_pretrained(version)
         self.model = CLIPModel.from_pretrained(version)
         self.max_length = max_length  # TODO: typical value?
         self.encode_type = encode_type
-        self.pinv_text_projection = None
+        self.fp16 = fp16
         self.freeze()
 
     def get_device(self):
@@ -100,7 +73,7 @@ class FrozenCLIP(AbstractEncoder):
 
     def freeze(self):
         self.model = self.model.eval()
-        #self.train = disabled_train
+        self.train = disabled_train
         for param in self.parameters():
             param.requires_grad = False
 
@@ -108,11 +81,13 @@ class FrozenCLIP(AbstractEncoder):
         batch_encoding = self.tokenizer(text, truncation=True, max_length=self.max_length, return_length=True,
                                         return_overflowing_tokens=False, padding="max_length", return_tensors="pt")
         tokens = batch_encoding["input_ids"].to(self.get_device())
-        return self.model.get_text_features(input_ids=tokens)
+        outputs = self.model.get_text_features(input_ids=tokens)
+        return outputs
 
     def encode_vision_pooled(self, images):
         inputs = self.processor(images=images, return_tensors="pt")
-        pixels = inputs['pixel_values'].to(self.get_device())
+        pixels = inputs['pixel_values'].half() if self.fp16 else inputs['pixel_values']
+        pixels = pixels.to(self.get_device())
         return self.model.get_image_features(pixel_values=pixels)
 
     def encode_text_noproj(self, text):
@@ -124,19 +99,10 @@ class FrozenCLIP(AbstractEncoder):
         
     def encode_vision_noproj(self, images):
         inputs = self.processor(images=images, return_tensors="pt")
-        pixels = inputs['pixel_values'].to(self.get_device())
+        pixels = inputs['pixel_values'].half() if self.fp16 else inputs['pixel_values']
+        pixels = pixels.to(self.get_device())
         outputs = self.model.vision_model(pixel_values=pixels)
         return outputs.last_hidden_state
-
-    def encode_text_bug(self, text):
-        batch_encoding = self.tokenizer(text, truncation=True, max_length=self.max_length, return_length=True,
-                                        return_overflowing_tokens=False, padding="max_length", return_tensors="pt")
-        tokens = batch_encoding["input_ids"].to(self.get_device())
-        outputs = self.model.text_model(input_ids=tokens)
-        z = outputs.last_hidden_state
-        z_pooled = outputs.pooler_output
-        z = z / torch.norm(z_pooled.unsqueeze(1), dim=-1, keepdim=True)
-        return self.model.text_projection(z)
 
     def encode_text(self, text):
         batch_encoding = self.tokenizer(text, truncation=True, max_length=self.max_length, return_length=True,
@@ -156,20 +122,6 @@ class FrozenCLIP(AbstractEncoder):
         # z_pooled_normed = z_pooled / z_pooled.norm(dim=-1, keepdim=True)
         z = z / torch.norm(z_pooled, dim=-1, keepdim=True)
         return z
-
-    def encode_vision_pinvtext(self, images):
-        blank_text_encode_norm_avg = 28.9096
-        z = self.encode_vision(images)
-        if self.pinv_text_projection is None:
-            self.pinv_text_projection = torch.linalg.pinv(self.model.text_projection.weight).T
-        z = torch.matmul(z, self.pinv_text_projection)
-        # z = z / torch.norm(z[:, 0:1], dim=-1, keepdim=True)
-        z = z / torch.norm(z, dim=-1, keepdim=True)
-        z = z*blank_text_encode_norm_avg
-        # return z[:, 1:2].repeat(1, 77, 1)
-        z2 = self.encode_text_noproj('')
-        # z2[:, 1:77] = z[:, 0:76]
-        return torch.flip(z, dims=(1,))[:, 0:77]
 
     def encode(self, *args, **kwargs):
         return getattr(self, self.encode_type)(*args, **kwargs)
