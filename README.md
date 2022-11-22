@@ -123,6 +123,8 @@ python inference.py --gpu 0 --app dual-guided --image assets/benz.jpg --prompt "
 python inference.py --gpu 0 --app i2t2i --image assets/ghibli.jpg --nprompt "white house" --pprompt "tall castle" --seed 20 --save log/i2t2i.png --coloradj simple
 ```
 
+We also provide a lite inference with float16. You can do it by adding a tag ```--fp16``` at the end of each commands.
+
 ## Training
 
 Coming soon
