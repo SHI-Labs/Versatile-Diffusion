@@ -85,11 +85,8 @@ All useful pretrained models can be downloaded from this [link](https://drive.go
 │   └── sd-v1-4.pth
 │   └── sd-variation-ema.pth
 │   └── vd-dc.pth
-│   └── vd-four-flow-v1-0.pth (originally named vd-official.pth)
-│   └── vd-four-flow-v1-0-fp16.pth
+│   └── vd-official.pth
 ```
-
-Model named with **-fp16** are models with float16 parameters and correpondingly used in ```--fp16``` evaluation. The float16 models are half of the size comparing to the float32 models.
 
 ## Evaluation
 
@@ -124,12 +121,6 @@ python inference.py --gpu 0 --app text-variation --prompt "a pink car" --seed 8
 python inference.py --gpu 0 --app disentanglement --image assets/vermeer.jpg --seed 8 --save log/disentanglement.png --coloradj simple --dislevel -2
 python inference.py --gpu 0 --app dual-guided --image assets/benz.jpg --prompt "cyberpunk 2077" --seed 22 --save log/dual-guided.png --coloradj none --dgmixing 0.7
 python inference.py --gpu 0 --app i2t2i --image assets/ghibli.jpg --nprompt "white house" --pprompt "tall castle" --seed 20 --save log/i2t2i.png --coloradj simple
-```
-
-We also provide a lite inference with float16. You can do it by adding a tag ```--fp16``` to each command. For example:
-
-```
-python inference.py --gpu 0 --app image-variation --image assets/space.jpg --seed 8 --save log/image-variation.png --coloradj simple --fp16
 ```
 
 ## Training
