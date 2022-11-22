@@ -10,7 +10,7 @@ This repo hosts the official implementary of:
 
 ## News
 
-- [2022.11.21]: We now can inference with float16, which roughly reduces both GPU memory and model size by half.
+- [2022.11.21]: The code now can inference with float16, reducing both GPU memory and model size by half.
 - [2022.11.19]: We add a simplified evaluation script ```inference.py``` that supports all mentioned applications.
 - **[2022.11.16]: Our demo is up and running on [🤗HuggingFace](https://huggingface.co/spaces/shi-labs/Versatile-Diffusion)!**
 - [2022.11.14]: Part of our evaluation code and models are released!
