@@ -29,12 +29,15 @@ class vd_inference(object):
     def __init__(self, pth='pretrained/vd1.0-four-flow.pth', fp16=False, device=0):
         cfgm_name = 'vd_noema'
         cfgm = model_cfg_bank()('vd_noema')
+        device_str = device if isinstance(device, str) else 'cuda:{}'.format(device)
+        cfgm.args.autokl_cfg.map_location = device_str
+        cfgm.args.optimus_cfg.map_location = device_str
         net = get_model()(cfgm)
         if fp16:
             highlight_print('Running in FP16')
             net.clip.fp16 = True
             net = net.half()
-        sd = torch.load(pth, map_location='cpu')
+        sd = torch.load(pth, map_location=device_str)
         net.load_state_dict(sd, strict=False)
         print('Load pretrained weight from {}'.format(pth))
         net.to(device)

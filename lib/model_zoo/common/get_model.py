@@ -86,15 +86,15 @@ class get_model(object):
         args = preprocess_model_args(cfg.args)
         net = self.model[t](**args)
 
+        map_location = cfg.get('map_location', 'cpu')
+        strict_sd = cfg.get('strict_sd', True)
         if 'ckpt' in cfg:
-            checkpoint = torch.load(cfg.ckpt, map_location='cpu')
-            strict_sd = cfg.get('strict_sd', True)
+            checkpoint = torch.load(cfg.ckpt, map_location=map_location)
             net.load_state_dict(checkpoint['state_dict'], strict=strict_sd)
             if verbose:
                 print_log('Load ckpt from {}'.format(cfg.ckpt))
         elif 'pth' in cfg:
-            sd = torch.load(cfg.pth, map_location='cpu')
-            strict_sd = cfg.get('strict_sd', True)
+            sd = torch.load(cfg.pth, map_location=map_location)
             net.load_state_dict(sd, strict=strict_sd)
             if verbose:
                 print_log('Load pth from {}'.format(cfg.pth))
