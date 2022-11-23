@@ -93,7 +93,7 @@ Please refer to this [doc](https://github.com/SHI-Labs/Versatile-Diffusion/blob/
 
 ## Evaluation
 
-Here are the one-line shell commands to evaluate VD four-flow models with multiple GPUs.
+Here is the one-line shell command to evaluate VD four-flow models with multiple GPUs.
 
 ```
 python main.py --config vd_official_eval --gpu 0 1 2 3 4 5 6 7 --eval 99999
