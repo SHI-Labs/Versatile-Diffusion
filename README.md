@@ -77,7 +77,7 @@ pip install -r requirement.txt
 
 ## Pretrained models
 
-Useful pretrained models can be downloaded from HuggingFace [link](https://huggingface.co/shi-labs/versatile-diffusion-model/tree/main/pretrained_pth). The pretrained folder should include the following files:
+Useful pretrained models can be downloaded from HuggingFace [link](https://huggingface.co/shi-labs/versatile-diffusion/tree/main/pretrained_pth). The pretrained folder should include the following files:
 
 ```
 ├── pretrained
