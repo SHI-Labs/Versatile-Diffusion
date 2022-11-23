@@ -12,3 +12,4 @@ torchmetrics==0.7.3
 einops==0.3.0
 omegaconf==2.1.1
 taming-transformers==0.0.1
+
