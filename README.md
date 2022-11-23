@@ -77,42 +77,35 @@ pip install -r requirement.txt
 
 ## Pretrained models
 
-Useful pretrained models can be downloaded from this [link](https://drive.google.com/drive/folders/1SloRnOO9UnonfvubPWfw0uFpLco_2JvH?usp=sharing) and from HuggingFace [link](https://huggingface.co/shi-labs/versatile-diffusion-model/tree/main/pretrained_pth). The pretrained folder should include the following files:
+Useful pretrained models can be downloaded from HuggingFace [link](https://huggingface.co/shi-labs/versatile-diffusion-model/tree/main/pretrained_pth). The pretrained folder should include the following files:
 
 ```
 ├── pretrained
 │   └── kl-f8.pth
 │   └── optimus-vae.pth
-│   └── sd-v1-4.pth
-│   └── sd-variation-ema.pth
-│   └── vd-dc.pth
 │   └── vd-four-flow-v1-0.pth (originally named vd-official.pth)
 │   └── vd-four-flow-v1-0-fp16.pth
+│   └── sd-v1-4.pth (for reproducing baselines)
+│   └── sd-variation-ema.pth (for reproducing baselines)
+│   └── vd-dc.pth (so far not well supported in this code)
 ```
 
 Model named with **-fp16** are models with float16 parameters and correpondingly used in ```--fp16``` evaluation. The float16 models are half of the size comparing to the float32 models.
 
+Please refer to this [doc]() to download VD-DC and baselines models. 
+
 ## Evaluation
 
-Here are the one-line shell commands to evaluate SD baselines with multiple GPUs.
+Here are the one-line shell commands to evaluate VD four-flow models with multiple GPUs.
 
 ```
-python main.py --config sd_eval --gpu 0 1 2 3 4 5 6 7 --eval 99999
-python main.py --config sd_variation_eval --gpu 0 1 2 3 4 5 6 7 --eval 99999
-```
-
-Here are the one-line shell commands to evaluate VD models with multiple GPUs.
-
-```
-python main.py --config vd_dc_eval --gpu 0 1 2 3 4 5 6 7 --eval 99999
 python main.py --config vd_official_eval --gpu 0 1 2 3 4 5 6 7 --eval 99999
 ```
 
-All corresponding evaluation configs can be found in ```./configs/experiment```. There are useful information in the config. You can easy customized it and run your own batched evaluations.
+The corresponding evaluation configs can be found in ```./configs/experiment/vd_official_eval.yaml```. There are useful information in the config. You can easy customized it and run your own batched evaluations.
 
 For the commands above, you also need to:
 * Create ```./pretrained``` and move all downloaded pretrained models in it.
-* Create ```./log/sd_nodataset/99999_eval``` for baseline evaluations on Stable Diffusion
 * Create ```./log/vd_nodataset/99999_eval``` for evaluations on Versatile Diffusion
 
 Besides, we provide a simple evaluation script ```inference.py``` that support all applications mentioned in the paper. Examples are below:
@@ -132,6 +125,8 @@ You can also inference with float16 by adding a tag ```--fp16``` to each command
 ```
 python inference.py --gpu 0 --app image-variation --image assets/space.jpg --seed 8 --save log/image-variation.png --coloradj simple --fp16
 ```
+
+For baseline experiments and experiments on VD-DC, please refer to this [doc]()
 
 ## Training
 
