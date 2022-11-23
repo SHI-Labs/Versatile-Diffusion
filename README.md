@@ -85,14 +85,11 @@ Useful pretrained models can be downloaded from HuggingFace [link](https://huggi
 │   └── optimus-vae.pth
 │   └── vd-four-flow-v1-0.pth (originally named vd-official.pth)
 │   └── vd-four-flow-v1-0-fp16.pth
-│   └── sd-v1-4.pth (for reproducing baselines)
-│   └── sd-variation-ema.pth (for reproducing baselines)
-│   └── vd-dc.pth (so far not well supported in this code)
 ```
 
 Model named with **-fp16** are models with float16 parameters and correpondingly used in ```--fp16``` evaluation. The float16 models are half of the size comparing to the float32 models.
 
-Please refer to this [doc]() to download VD-DC and baselines models. 
+Please refer to this [doc](https://github.com/SHI-Labs/Versatile-Diffusion/blob/master/README_extra.md) to download VD-DC and baselines models. 
 
 ## Evaluation
 
@@ -126,7 +123,7 @@ You can also inference with float16 by adding a tag ```--fp16``` to each command
 python inference.py --gpu 0 --app image-variation --image assets/space.jpg --seed 8 --save log/image-variation.png --coloradj simple --fp16
 ```
 
-For baseline experiments and experiments on VD-DC, please refer to this [doc]()
+For baseline experiments and experiments on VD-DC, please refer to this [doc](https://github.com/SHI-Labs/Versatile-Diffusion/blob/master/README_extra.md)
 
 ## Training
 
