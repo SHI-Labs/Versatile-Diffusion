@@ -10,7 +10,7 @@ This repo hosts the official implementary of:
 
 ## News
 
-- [2022.11.23]: Versatile Diffusion are now included in ```diffuser==0.8.0``` library🚀!
+- [2022.11.23]: Versatile Diffusion are now released in [```diffuser==0.8.0```](https://github.com/huggingface/diffusers/releases) library🚀!
 - [2022.11.21]: ```inference.py``` now supports ```--fp16```, reducing both GPU memory and model size by half.
 - [2022.11.19]: We add a simplified evaluation script ```inference.py``` that supports all mentioned applications.
 - **[2022.11.16]: Our demo is up and running on [🤗HuggingFace](https://huggingface.co/spaces/shi-labs/Versatile-Diffusion)!**
