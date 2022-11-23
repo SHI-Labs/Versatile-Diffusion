@@ -11,4 +11,3 @@ torchmetrics==0.7.3
 
 einops==0.3.0
 omegaconf==2.1.1
--e git+https://github.com/CompVis/taming-transformers.git@master#egg=taming-transformers
