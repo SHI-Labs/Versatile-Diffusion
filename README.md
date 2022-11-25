@@ -30,7 +30,7 @@ We built **Versatile Diffusion (VD), the first unified multi-flow multimodal dif
 One single flow of Versatile Diffusion contains a VAE, a diffuser, and a context encoder,  and thus handles one task (e.g., text-to-image) under one data type (e.g., image) and one context type (e.g., text). The multi-flow structure of Versatile Diffusion shows in the following diagram:
 
 <p align="center">
-  <img src="assets/figures/VD_framework.png" width="99%">
+  <img src="assets/figures/vd_combined.png" width="99%">
 </p>
 
 According to Versatile Diffusion, we further proposed a generalized multi-flow multimodal framework with VAEs, context encoders, and diffusers containing three layers (i.e., global, data, and context layers). To involve a new multimodal task in this framework, we bring out the following requirements:
