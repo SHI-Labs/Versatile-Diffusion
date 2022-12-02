@@ -13,7 +13,7 @@ This repo hosts the official implementary of:
 - [2022.11.23]: Versatile Diffusion are now released in [```diffuser==0.8.0```](https://github.com/huggingface/diffusers/releases) library🚀!
 - [2022.11.21]: ```inference.py``` now supports ```--fp16```, reducing both GPU memory and model size by half.
 - [2022.11.19]: We add a simplified evaluation script ```inference.py``` that supports all mentioned applications.
-- **[2022.11.16]: Our demo is up and running on [🤗HuggingFace](https://huggingface.co/spaces/shi-labs/Versatile-Diffusion)!**
+- **[2022.11.16]: Our demo is up and running on [🤗Hugging Face](https://huggingface.co/spaces/shi-labs/Versatile-Diffusion)!**
 - [2022.11.14]: Part of our evaluation code and models are released!
 - [2022.11.12]: Repo initiated
 
@@ -78,7 +78,7 @@ pip install -r requirement.txt
 
 ## Pretrained models
 
-Useful pretrained models can be downloaded from HuggingFace [link](https://huggingface.co/shi-labs/versatile-diffusion/tree/main/pretrained_pth). The pretrained folder should include the following files:
+Useful pretrained models can be downloaded from Hugging Face [link](https://huggingface.co/shi-labs/versatile-diffusion/tree/main/pretrained_pth). The pretrained folder should include the following files:
 
 ```
 ├── pretrained
