@@ -88,7 +88,7 @@ All pretrained models can be downloaded from Hugging Face [link](https://hugging
 
 Model named with **-fp16** are models with float16 parameters, which is half size of the float32 models.
 
-## Evaluation
+## Inference
 
 We now provide a convenience WebUI ```app.py``` that support all applications. Start the WebUI with the following command:
 
