@@ -263,16 +263,16 @@ class vd_inference(object):
             self.dtype = torch.float32
 
         if self.which == 'v1.0':
-            # if fp16:
-            #     sd = torch.load('pretrained/vd-four-flow-v1-0-fp16.pth', map_location='cpu')
-            # else:
-            #     sd = torch.load('pretrained/vd-four-flow-v1-0.pth', map_location='cpu')
-            from huggingface_hub import hf_hub_download
             if fp16:
-                temppath = hf_hub_download('shi-labs/versatile-diffusion-model', 'pretrained_pth/vd-four-flow-v1-0-fp16.pth')
+                sd = torch.load('pretrained/vd-four-flow-v1-0-fp16.pth', map_location='cpu')
             else:
-                temppath = hf_hub_download('shi-labs/versatile-diffusion-model', 'pretrained_pth/vd-four-flow-v1-0.pth')
-            sd = torch.load(temppath, map_location='cpu')
+                sd = torch.load('pretrained/vd-four-flow-v1-0.pth', map_location='cpu')
+            # from huggingface_hub import hf_hub_download
+            # if fp16:
+            #     temppath = hf_hub_download('shi-labs/versatile-diffusion-model', 'pretrained_pth/vd-four-flow-v1-0-fp16.pth')
+            # else:
+            #     temppath = hf_hub_download('shi-labs/versatile-diffusion-model', 'pretrained_pth/vd-four-flow-v1-0.pth')
+            # sd = torch.load(temppath, map_location='cpu')
 
         net.load_state_dict(sd, strict=False)
 
@@ -1110,5 +1110,5 @@ if True:
             </div>
             """.format(' '+vd_inference.which))
 
-    # demo.launch(share=True)
-    demo.launch(debug=True)
+    demo.launch(share=True)
+    # demo.launch(debug=True)

@@ -10,12 +10,9 @@ This repo hosts the official implementary of:
 
 ## News
 
-- [2022.11.23]: Versatile Diffusion are now released in [```diffuser==0.8.0```](https://github.com/huggingface/diffusers/releases) library🚀!
-- [2022.11.21]: ```inference.py``` now supports ```--fp16```, reducing both GPU memory and model size by half.
-- [2022.11.19]: We add a simplified evaluation script ```inference.py``` that supports all mentioned applications.
-- **[2022.11.16]: Our demo is up and running on [🤗Hugging Face](https://huggingface.co/spaces/shi-labs/Versatile-Diffusion)!**
-- [2022.11.14]: Part of our evaluation code and models are released!
-- [2022.11.12]: Repo initiated
+- **[2023.02.07]: Our new demo is up and running on [🤗Hugging Face](https://huggingface.co/spaces/shi-labs/Versatile-Diffusion)!**
+- [2023.02.07]: A major update on Versatile Diffusion's code base with better structured model code and more convenience app.
+- [\_Previous\_]: For previous changes, please see deprecated [README](https://github.com/SHI-Labs/Versatile-Diffusion/blob/master/README_deprecated.md).
 
 ## Introduction
 
@@ -73,62 +70,45 @@ These compressed data are generated with img2dataset API [official github link](
 conda create -n versatile-diffusion python=3.8
 conda activate versatile-diffusion
 conda install pytorch==1.12.1 torchvision=0.13.1 -c pytorch
+[Alternatively] pip install torch==1.12.1+cu113 torchvision==0.13.1+cu113 torchaudio==0.12.1 --extra-index-url https://download.pytorch.org/whl/cu113
 pip install -r requirement.txt
 ```
 
 ## Pretrained models
 
-Useful pretrained models can be downloaded from Hugging Face [link](https://huggingface.co/shi-labs/versatile-diffusion/tree/main/pretrained_pth). The pretrained folder should include the following files:
+All pretrained models can be downloaded from Hugging Face [link](https://huggingface.co/shi-labs/versatile-diffusion/tree/main/pretrained_pth). The pretrained folder should include the following files:
 
 ```
 ├── pretrained
 │   └── kl-f8.pth
 │   └── optimus-vae.pth
-│   └── vd-four-flow-v1-0.pth (originally named vd-official.pth)
+│   └── vd-four-flow-v1-0.pth
 │   └── vd-four-flow-v1-0-fp16.pth
 ```
 
-Model named with **-fp16** are models with float16 parameters and correpondingly used in ```--fp16``` evaluation. The float16 models are half of the size comparing to the float32 models.
-
-Please refer to this [doc](https://github.com/SHI-Labs/Versatile-Diffusion/blob/master/README_extra.md) to download VD-DC and baselines models. 
+Model named with **-fp16** are models with float16 parameters, which is half size of the float32 models.
 
 ## Evaluation
 
-Here is the one-line shell command to evaluate VD four-flow models with multiple GPUs.
+We now provide a convenience WebUI ```app.py``` that support all applications. Start the WebUI with the following:
 
 ```
-python main.py --config vd_official_eval --gpu 0 1 2 3 4 5 6 7 --eval 99999
+python app.py
 ```
 
-The corresponding evaluation configs can be found in ```./configs/experiment/vd_official_eval.yaml```. There are useful information in the config. You can easy customized it and run your own batched evaluations.
+The WebUI contains these following new features:
 
-For the commands above, you also need to:
-* Create ```./pretrained``` and move all downloaded pretrained models in it.
-* Create ```./log/vd_nodataset/99999_eval``` for evaluations on Versatile Diffusion
+- Improved and enhanced Image-Variation
+- New Triple-Context Image Blender (support 2 masked images + text)
+- New Multi-Context Image Blender (support up to 4 masked images + text)
 
-Besides, we provide a simple evaluation script ```inference.py``` that support all applications mentioned in the paper. Examples are below:
+The following old features have been temporary disables:
 
-```
-python inference.py --gpu 0 --app text-to-image --prompt "a dream of a village in china, by Caspar David Friedrich, matte painting trending on artstation HQ" --seed 0 --save log/text-to-image.png
-python inference.py --gpu 0 --app image-variation --image assets/space.jpg --seed 8 --save log/image-variation.png --coloradj simple
-python inference.py --gpu 0 --app image-to-text --image assets/space.jpg --seed 8
-python inference.py --gpu 0 --app text-variation --prompt "a pink car" --seed 8
-python inference.py --gpu 0 --app disentanglement --image assets/vermeer.jpg --seed 8 --save log/disentanglement.png --coloradj simple --dislevel -2
-python inference.py --gpu 0 --app dual-guided --image assets/benz.jpg --prompt "cyberpunk 2077" --seed 22 --save log/dual-guided.png --coloradj none --dgmixing 0.7
-python inference.py --gpu 0 --app i2t2i --image assets/ghibli.jpg --nprompt "white house" --pprompt "tall castle" --seed 20 --save log/i2t2i.png --coloradj simple
-```
-
-You can also inference with float16 by adding a tag ```--fp16``` to each command. It doubles the running speed using a half size pretrained model ```vd-***-fp16.pth```. You will also need to update transformers to 4.24.0. Below is an example command using float16:
-
-```
-python inference.py --gpu 0 --app image-variation --image assets/space.jpg --seed 8 --save log/image-variation.png --coloradj simple --fp16
-```
-
-For baseline experiments and experiments on VD-DC, please refer to this [doc](https://github.com/SHI-Labs/Versatile-Diffusion/blob/master/README_extra.md)
+- I2T2I is temporary offline, we are actively seeking a better way of image editing.
 
 ## Training
 
-Coming soon
+We are trying very hard to make it out soon.
 
 ## Gallery
 

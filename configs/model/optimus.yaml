@@ -99,5 +99,5 @@ optimus_v1:
     tokenizer_decoder: MODEL(optimus_gpt2_tokenizer)
     args:
       latent_size: 768
-  # pth: pretrained/optimus-vae.pth
-  hfm: ['shi-labs/versatile-diffusion-model', 'pretrained_pth/optimus-vae.pth']
+  pth: pretrained/optimus-vae.pth
+  # hfm: ['shi-labs/versatile-diffusion-model', 'pretrained_pth/optimus-vae.pth']

@@ -19,5 +19,5 @@ autokl_v1:
       attn_resolutions: []
       dropout: 0.0
     lossconfig: null
-  # pth: pretrained/kl-f8.pth
-  hfm: ['shi-labs/versatile-diffusion-model', 'pretrained_pth/kl-f8.pth']
+  pth: pretrained/kl-f8.pth
+  # hfm: ['shi-labs/versatile-diffusion-model', 'pretrained_pth/kl-f8.pth']
