@@ -90,7 +90,7 @@ Model named with **-fp16** are models with float16 parameters, which is half siz
 
 ## Evaluation
 
-We now provide a convenience WebUI ```app.py``` that support all applications. Start the WebUI with the following:
+We now provide a convenience WebUI ```app.py``` that support all applications. Start the WebUI with the following command:
 
 ```
 python app.py
@@ -99,8 +99,8 @@ python app.py
 The WebUI contains these following new features:
 
 - Improved and enhanced Image-Variation
-- New Triple-Context Image Blender (support 2 masked images + text)
-- New Multi-Context Image Blender (support up to 4 masked images + text)
+- New Triple-Context Image Blender (support 2 images with optional masks + text)
+- New Multi-Context Image Blender (support up to 4 images  with optional masks + text)
 
 The following old features have been temporary disables:
 
@@ -108,7 +108,7 @@ The following old features have been temporary disables:
 
 ## Training
 
-We are trying very hard to make it out soon.
+We will try our best to make it out soon.
 
 ## Gallery
 
