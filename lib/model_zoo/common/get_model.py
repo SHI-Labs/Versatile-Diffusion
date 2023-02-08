@@ -8,27 +8,6 @@ from .utils import \
     get_total_param, get_total_param_sum, \
     get_unit
 
-# def load_state_dict(net, model_path):
-#     if isinstance(net, dict):
-#         for ni, neti in net.items():
-#             paras = torch.load(model_path[ni], map_location=torch.device('cpu'))
-#             new_paras = neti.state_dict()
-#             new_paras.update(paras)
-#             neti.load_state_dict(new_paras)
-#     else:
-#         paras = torch.load(model_path, map_location=torch.device('cpu'))
-#         new_paras = net.state_dict()
-#         new_paras.update(paras)
-#         net.load_state_dict(new_paras)
-#     return
-
-# def save_state_dict(net, path):
-#     if isinstance(net, (torch.nn.DataParallel,
-#                         torch.nn.parallel.DistributedDataParallel)):
-#         torch.save(net.module.state_dict(), path)
-#     else:
-#         torch.save(net.state_dict(), path)
-
 def singleton(class_):
     instances = {}
     def getinstance(*args, **kwargs):
@@ -94,6 +73,14 @@ class get_model(object):
             net.load_state_dict(sd, strict=strict_sd)
             if verbose:
                 print_log('Load pth from {}'.format(cfg.pth))
+        elif 'hfm' in cfg:
+            from huggingface_hub import hf_hub_download
+            temppath = hf_hub_download(cfg.hfm[0], cfg.hfm[1])
+            sd = torch.load(temppath, map_location='cpu')
+            strict_sd = cfg.get('strict_sd', True)
+            net.load_state_dict(sd, strict=strict_sd)
+            if verbose:
+                print_log('Load hfm from {}/{}'.format(*cfg.hfm))
 
         # display param_num & param_sum
         if verbose:

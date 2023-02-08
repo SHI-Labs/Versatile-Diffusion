@@ -16,4 +16,5 @@ einops==0.3.0
 omegaconf==2.1.1
 open_clip_torch==2.0.2
 webdataset==0.2.5
+huggingface-hub==0.11.1
 gradio==3.17.1

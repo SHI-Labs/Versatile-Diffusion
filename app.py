@@ -252,10 +252,6 @@ class vd_inference(object):
             assert False, 'Model type not supported'
         net = get_model()(cfgm)
 
-        if self.which == 'v1.0':
-            sd = torch.load('pretrained/vd-four-flow-v1-0.pth', map_location='cpu')
-        net.load_state_dict(sd, strict=False)
-
         if fp16:
             highlight_print('Running in FP16')
             if self.which == 'v1.0':
@@ -265,6 +261,20 @@ class vd_inference(object):
             self.dtype = torch.float16
         else:
             self.dtype = torch.float32
+
+        if self.which == 'v1.0':
+            # if fp16:
+            #     sd = torch.load('pretrained/vd-four-flow-v1-0-fp16.pth', map_location='cpu')
+            # else:
+            #     sd = torch.load('pretrained/vd-four-flow-v1-0.pth', map_location='cpu')
+            from huggingface_hub import hf_hub_download
+            if fp16:
+                temppath = hf_hub_download('shi-labs/versatile-diffusion-model', 'pretrained_pth/vd-four-flow-v1-0-fp16.pth')
+            else:
+                temppath = hf_hub_download('shi-labs/versatile-diffusion-model', 'pretrained_pth/vd-four-flow-v1-0.pth')
+            sd = torch.load(temppath, map_location='cpu')
+
+        net.load_state_dict(sd, strict=False)
 
         self.use_cuda = torch.cuda.is_available()
         if self.use_cuda:
@@ -855,9 +865,11 @@ def tcg_interface(with_example=False):
             cache_examples=cache_examples, )
 
     gr.HTML('<br><p id=myinst>&nbsp How to add mask: Please see the following instructions.</p><br>'+
-            '<img src="file/assets/demo/misc/mask_inst1.gif" style="float:left;max-width:450px;">'+
-            '<img src="file/assets/demo/misc/mask_inst2.gif" style="float:left;max-width:450px;">'+
-            '<img src="file/assets/demo/misc/mask_inst3.gif" style="float:left;max-width:450px;">',)
+            '<div id="maskinst">'+
+                '<img src="file/assets/demo/misc/mask_inst1.gif">'+
+                '<img src="file/assets/demo/misc/mask_inst2.gif">'+
+                '<img src="file/assets/demo/misc/mask_inst3.gif">'+
+            '</div>')
 
 def mcg_interface(with_example=False):
     num_img_input = 4
@@ -917,9 +929,11 @@ def mcg_interface(with_example=False):
             cache_examples=cache_examples, )
 
     gr.HTML('<br><p id=myinst>&nbsp How to add mask: Please see the following instructions.</p><br>'+
-            '<img src="file/assets/demo/misc/mask_inst1.gif" style="float:left;max-width:450px;">'+
-            '<img src="file/assets/demo/misc/mask_inst2.gif" style="float:left;max-width:450px;">'+
-            '<img src="file/assets/demo/misc/mask_inst3.gif" style="float:left;max-width:450px;">',)
+            '<div id="maskinst">'+
+                '<img src="file/assets/demo/misc/mask_inst1.gif">'+
+                '<img src="file/assets/demo/misc/mask_inst2.gif">'+
+                '<img src="file/assets/demo/misc/mask_inst3.gif">'+
+            '</div>')
 
 ###########
 # Example #
@@ -972,7 +986,7 @@ def get_example(mode):
                 "rose blooms on the tree", 0.2, 20],
             [
                 'assets/demo/reg_example/ghibli.jpg', None, 1   , 1  , False,
-                'assets/demo/reg_example/space.jpg' , None, 0.84, 0.5, False,
+                'assets/demo/reg_example/space.jpg' , None, 0.88, 0.5, False,
                 "", 0, 20],
             [
                 'assets/demo/reg_example/train.jpg'  , None, 0.8, 0.5, False,
@@ -1017,6 +1031,21 @@ css = """
         margin: 0rem;
         color: #6B7280;
     }
+    #maskinst {
+        text-align: justify;
+        min-width: 1200px;
+    }
+    #maskinst>img {
+        min-width:399px;
+        max-width:450px;
+        vertical-align: top;
+        display: inline-block;
+    }
+    #maskinst:after {
+        content: "";
+        width: 100%;
+        display: inline-block;
+    }
 """
 
 if True:
@@ -1025,7 +1054,7 @@ if True:
             """
             <div style="text-align: center; max-width: 1200px; margin: 20px auto;">
             <h1 style="font-weight: 900; font-size: 3rem; margin: 0rem">
-                Versatile Diffusion{}
+                Versatile Diffusion
             </h1>
             <h2 style="font-weight: 450; font-size: 1rem; margin-top: 0.5rem; margin-bottom: 0.5rem">
             We built <b>Versatile Diffusion (VD), the first unified multi-flow multimodal diffusion framework</b>, as a step towards <b>Universal Generative AI</b>. 
@@ -1041,8 +1070,7 @@ if True:
             [<a href="https://github.com/SHI-Labs/Versatile-Diffusion" style="color:blue;">GitHub</a>]
             </h3>
             </div>
-            """.format(' '+vd_inference.which))
-            # .format('')) #
+            """)
 
         with gr.Tab('Text-to-Image'):
             t2i_interface(with_example=True)
@@ -1061,7 +1089,10 @@ if True:
 
         gr.HTML(
             """
-            <div style="text-align: center; max-width: 1200px; margin: 20px auto;">
+            <div style="text-align: justify; max-width: 1200px; margin: 20px auto;">
+            <h3 style="font-weight: 450; font-size: 0.8rem; margin: 0rem">
+            <b>Version</b>: {}
+            </h3>
             <h3 style="font-weight: 450; font-size: 0.8rem; margin: 0rem">
             <b>Caution</b>: 
             We would like the raise the awareness of users of this demo of its potential issues and concerns.
@@ -1077,7 +1108,7 @@ if True:
             VD in this demo is meant only for research purposes.
             </h3>
             </div>
-            """)
+            """.format(' '+vd_inference.which))
 
-    demo.launch(share=True)
-    # demo.launch(debug=True)
+    # demo.launch(share=True)
+    demo.launch(debug=True)

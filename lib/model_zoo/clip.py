@@ -3,6 +3,7 @@ import torch.nn as nn
 import numpy as np
 from functools import partial
 from lib.model_zoo.common.get_model import register
+import torch.nn.functional as F
 
 symbol = 'clip'
 
@@ -104,7 +105,6 @@ class CLIPImageContextEncoder(AbstractEncoder):
         assert isinstance(masks, torch.Tensor)
         assert (len(masks.shape)==4) and (masks.shape[1]==1)
         masks = torch.clamp(masks, 0, 1)
-        masked_images = images*masks
         masks = masks.float()
         masks = F.interpolate(masks, [224, 224], mode='bilinear')
         if masks.sum() == masks.numel():
@@ -141,29 +141,6 @@ class CLIPImageContextEncoder(AbstractEncoder):
         self.model.vision_model.embeddings.forward = old_forward
         z = z * vtoken_mask.to(dtype)
         return z
-
-    # def _encode_wmask(self, images, masks):
-    #     assert isinstance(masks, torch.Tensor)
-    #     assert (len(masks.shape)==4) and (masks.shape[1]==1)
-    #     masks = torch.clamp(masks, 0, 1)
-    #     masks = masks.float()
-    #     masks = F.interpolate(masks, [224, 224], mode='bilinear')
-    #     if masks.sum() == masks.numel():
-    #         return self._encode(images)
-
-    #     device = images.device
-    #     dtype = images.dtype
-
-    #     vtoken_kernel_size = self.model.vision_model.embeddings.patch_embedding.kernel_size
-    #     vtoken_stride = self.model.vision_model.embeddings.patch_embedding.stride
-    #     mask_kernal = torch.ones([1, 1, *vtoken_kernel_size], device=device, requires_grad=False).float()
-    #     vtoken_mask = torch.nn.functional.conv2d(masks, mask_kernal, stride=vtoken_stride).flatten(2).transpose(1, 2)
-    #     vtoken_mask = vtoken_mask/np.prod(vtoken_kernel_size)
-
-    #     z = self._encode(images)
-    #     z[:, 1:, :] = z[:, 1:, :] * vtoken_mask.to(dtype)
-    #     z[:, 0, :] = 0
-    #     return z
 
     def encode(self, images, masks=None):
         if masks is None:
