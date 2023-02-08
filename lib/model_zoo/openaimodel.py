@@ -16,7 +16,6 @@ from .attention import SpatialTransformer
 
 from lib.model_zoo.common.get_model import get_model, register
 
-version = '0'
 symbol = 'openai'
 
 # dummy replace
@@ -410,7 +409,7 @@ class QKVAttention(nn.Module):
         return count_flops_attn(model, _x, y)
 
 
-@register('openai_unet', version)
+@register('openai_unet')
 class UNetModel(nn.Module):
     """
     The full UNet model with attention and timestep embedding.
@@ -1001,7 +1000,7 @@ class EncoderUNetModel(nn.Module):
 
 from .attention import SpatialTransformerNoContext
 
-@register('openai_unet_nocontext', version)
+@register('openai_unet_nocontext')
 class UNetModelNoContext(nn.Module):
     def __init__(
             self,
@@ -1285,7 +1284,7 @@ class UNetModelNoContext(nn.Module):
         else:
             return self.out(h)
 
-@register('openai_unet_nocontext_noatt', version)
+@register('openai_unet_nocontext_noatt')
 class UNetModelNoContextNoAtt(nn.Module):
     def __init__(
             self,
@@ -1478,7 +1477,7 @@ class UNetModelNoContextNoAtt(nn.Module):
         else:
             return self.out(h)
 
-@register('openai_unet_nocontext_noatt_decoderonly', version)
+@register('openai_unet_nocontext_noatt_decoderonly')
 class UNetModelNoContextNoAttDecoderOnly(nn.Module):
     def __init__(
             self,
@@ -1619,7 +1618,7 @@ class TimestepEmbedSequentialExtended(nn.Sequential, TimestepBlock):
                 x = layer(x)
         return x
 
-@register('openai_unet_dual_context', version)
+@register('openai_unet_dual_context')
 class UNetModelDualContext(nn.Module):
     def __init__(
         self,
@@ -1946,7 +1945,7 @@ class UNetModelDualContext(nn.Module):
 
 from functools import partial
 
-@register('openai_unet_2d', version)
+@register('openai_unet_2d')
 class UNetModel2D(nn.Module):
     def __init__(self,
                  input_channels,
@@ -2141,7 +2140,7 @@ class FCBlock(TimestepBlock):
         h = self.out_layers(h)
         return self.skip_connection(x) + h
 
-@register('openai_unet_0d', version)
+@register('openai_unet_0d')
 class UNetModel0D(nn.Module):
     def __init__(self,
                  input_channels,
@@ -2287,10 +2286,10 @@ class Linear_MultiDim(nn.Linear):
 
     def forward(self, x):
         shape = x.shape
-        n = len(self.in_features_multidim)
-        x = x.view(*shape[0:-n], self.in_features)
+        n = len(shape) - len(self.in_features_multidim)
+        x = x.view(*shape[:n], self.in_features)
         y = super().forward(x)
-        y = y.view(*shape[0:-n], *self.out_features_multidim)
+        y = y.view(*shape[:n], *self.out_features_multidim)
         return y
 
 class FCBlock_MultiDim(FCBlock):
@@ -2332,7 +2331,7 @@ class FCBlock_MultiDim(FCBlock):
         y = y.view(*shape[0:-n], *self.out_channels_multidim)
         return y
 
-@register('openai_unet_0dmd', version)
+@register('openai_unet_0dmd')
 class UNetModel0D_MultiDim(nn.Module):
     def __init__(self,
                  input_channels,
@@ -2466,7 +2465,7 @@ class UNetModel0D_MultiDim(nn.Module):
             h = module(h, emb, context)
         return self.out(h)
 
-@register('openai_unet_vd', version)
+@register('openai_unet_vd')
 class UNetModelVD(nn.Module):
     def __init__(self,
                  unet_image_cfg,  
@@ -2565,3 +2564,412 @@ class UNetModelVD(nn.Module):
             else:
                 raise ValueError
         return h
+
+################
+# VD Next Unet #
+################
+
+from functools import partial
+import copy
+
+@register('openai_unet_2d_next')
+class UNetModel2D_Next(nn.Module):
+    def __init__(
+            self,
+            in_channels,
+            model_channels,
+            out_channels,
+            num_res_blocks,
+            attention_resolutions,
+            context_dim,
+            dropout=0,
+            channel_mult=(1, 2, 4, 8),
+            conv_resample=True,
+            use_checkpoint=False,
+            num_heads=8,
+            num_head_channels=None,
+            parts = ['global', 'data', 'context']):
+
+        super().__init__()
+
+        self.in_channels = in_channels
+        self.model_channels = model_channels
+        self.out_channels = out_channels
+        if isinstance(num_res_blocks, int):
+            self.num_res_blocks = len(channel_mult) * [num_res_blocks]
+        else:
+            if len(num_res_blocks) != len(channel_mult):
+                raise ValueError("provide num_res_blocks either as an int (globally constant) or "
+                                 "as a list/tuple (per-level) with the same length as channel_mult")
+            self.num_res_blocks = num_res_blocks
+
+        self.attention_resolutions = attention_resolutions
+        self.context_dim = context_dim
+        self.dropout = dropout
+        self.channel_mult = channel_mult
+        self.conv_resample = conv_resample
+        self.use_checkpoint = use_checkpoint
+        self.num_heads = num_heads
+        self.num_head_channels = num_head_channels
+        assert (num_heads is None) + (num_head_channels is None) == 1, \
+            "One of num_heads or num_head_channels need to be set"
+
+        self.parts = parts if isinstance(parts, list) else [parts]
+        self.glayer_included = 'global' in self.parts
+        self.dlayer_included = 'data' in self.parts
+        self.clayer_included = 'context' in self.parts
+        self.layer_sequence_ordering = []
+
+        #################
+        # global layers #
+        #################
+
+        time_embed_dim = model_channels * 4
+        if self.glayer_included:
+            self.time_embed = nn.Sequential(
+                linear(model_channels, time_embed_dim),
+                nn.SiLU(),
+                linear(time_embed_dim, time_embed_dim),
+            )
+
+        ################
+        # input layers #
+        ################
+
+        if self.dlayer_included:
+            self.data_blocks = nn.ModuleList([])
+            ResBlockDefault = partial(
+                ResBlock, 
+                emb_channels=time_embed_dim,
+                dropout=dropout,
+                dims=2,
+                use_checkpoint=use_checkpoint,
+                use_scale_shift_norm=False, )
+        else:
+            def dummy(*args, **kwargs):
+                return None
+            ResBlockDefault = dummy
+
+        if self.clayer_included:
+            self.context_blocks = nn.ModuleList([])
+            CrossAttnDefault = partial(
+                SpatialTransformer, 
+                context_dim=context_dim,
+                disable_self_attn=False, )
+        else:
+            def dummy(*args, **kwargs):
+                return None
+            CrossAttnDefault = dummy
+
+        self.add_data_layer(conv_nd(2, in_channels, model_channels, 3, padding=1))
+        self.layer_sequence_ordering.append('save_hidden_feature')
+        input_block_chans = [model_channels]
+
+        ch = model_channels
+        ds = 1
+        for level, mult in enumerate(channel_mult):
+            for _ in range(self.num_res_blocks[level]):
+                layer = ResBlockDefault(
+                    channels=ch, out_channels=mult*model_channels,)
+                self.add_data_layer(layer)
+                ch = mult * model_channels
+
+                if (ds in attention_resolutions):
+                    d_head, n_heads = self.get_d_head_n_heads(ch)
+                    layer = CrossAttnDefault(
+                        in_channels=ch, d_head=d_head, n_heads=n_heads,)
+                    self.add_context_layer(layer)
+                input_block_chans.append(ch)
+                self.layer_sequence_ordering.append('save_hidden_feature')
+
+            if level != len(channel_mult) - 1:
+                layer = Downsample(
+                    ch, use_conv=True, dims=2, out_channels=ch)
+                self.add_data_layer(layer)
+                input_block_chans.append(ch)
+                self.layer_sequence_ordering.append('save_hidden_feature')
+                ds *= 2
+
+        self.i_order = copy.deepcopy(self.layer_sequence_ordering)
+        self.layer_sequence_ordering = []
+
+        #################
+        # middle layers #
+        #################
+
+        self.add_data_layer(ResBlockDefault(channels=ch))
+        d_head, n_heads = self.get_d_head_n_heads(ch)
+        self.add_context_layer(CrossAttnDefault(in_channels=ch, d_head=d_head, n_heads=n_heads))
+        self.add_data_layer(ResBlockDefault(channels=ch))
+
+        self.m_order = copy.deepcopy(self.layer_sequence_ordering)
+        self.layer_sequence_ordering = []
+
+        #################
+        # output layers #
+        #################
+
+        for level, mult in list(enumerate(channel_mult))[::-1]:
+            for _ in range(self.num_res_blocks[level] + 1):
+                self.layer_sequence_ordering.append('load_hidden_feature')
+                ich = input_block_chans.pop()
+                layer = ResBlockDefault(
+                    channels=ch+ich, out_channels=model_channels*mult,)
+                ch = model_channels * mult
+                self.add_data_layer(layer)
+
+                if ds in attention_resolutions:
+                    d_head, n_heads = self.get_d_head_n_heads(ch)
+                    layer = CrossAttnDefault(
+                        in_channels=ch, d_head=d_head, n_heads=n_heads)
+                    self.add_context_layer(layer)
+
+            if level != 0:
+                layer = Upsample(ch, conv_resample, dims=2, out_channels=ch)
+                self.add_data_layer(layer)
+                ds //= 2                
+
+        layer = nn.Sequential(
+            normalization(ch),
+            nn.SiLU(),
+            zero_module(conv_nd(2, model_channels, out_channels, 3, padding=1)),
+        )
+        self.add_data_layer(layer)
+
+        self.o_order = copy.deepcopy(self.layer_sequence_ordering)
+        self.layer_order = copy.deepcopy(self.i_order + self.m_order + self.o_order)
+        del self.layer_sequence_ordering
+
+        self.parameter_group = {}
+        if self.glayer_included:
+            self.parameter_group['global'] = self.time_embed
+        if self.dlayer_included:
+            self.parameter_group['data'] = self.data_blocks
+        if self.clayer_included:
+            self.parameter_group['context'] = self.context_blocks
+
+    def get_d_head_n_heads(self, ch):
+        if self.num_head_channels is None:
+            d_head = ch // self.num_heads
+            n_heads = self.num_heads
+        else:
+            d_head = self.num_head_channels
+            n_heads = ch // self.num_head_channels
+        return d_head, n_heads
+
+    def add_data_layer(self, layer):
+        if self.dlayer_included:
+            if not isinstance(layer, (list, tuple)):
+                layer = [layer]
+            self.data_blocks.append(TimestepEmbedSequential(*layer))
+        self.layer_sequence_ordering.append('d')
+
+    def add_context_layer(self, layer):
+        if self.clayer_included:
+            if not isinstance(layer, (list, tuple)):
+                layer = [layer]
+            self.context_blocks.append(TimestepEmbedSequential(*layer))
+        self.layer_sequence_ordering.append('c')
+
+    def forward(self, x, timesteps, context):
+        hs = []
+        t_emb = timestep_embedding(timesteps, self.model_channels, repeat_only=False)
+        emb = self.time_embed(t_emb)
+
+        d_iter = iter(self.data_blocks)
+        c_iter = iter(self.context_blocks)
+
+        h = x
+        for ltype in self.i_order:
+            if ltype == 'd':
+                module = next(d_iter)
+                h = module(h, emb, context)
+            elif ltype == 'c':
+                module = next(c_iter)
+                h = module(h, emb, context)
+            elif ltype == 'save_hidden_feature':
+                hs.append(h)
+
+        for ltype in self.m_order:
+            if ltype == 'd':
+                module = next(d_iter)
+                h = module(h, emb, context)
+            elif ltype == 'c':
+                module = next(c_iter)
+                h = module(h, emb, context)
+
+        for ltype in self.i_order:
+            if ltype == 'load_hidden_feature':
+                h = th.cat([h, hs.pop()], dim=1)
+            elif ltype == 'd':
+                module = next(d_iter)
+                h = module(h, emb, context)
+            elif ltype == 'c':
+                module = next(c_iter)
+                h = module(h, emb, context)
+        o = h
+
+        return o
+
+@register('openai_unet_0d_next')
+class UNetModel0D_Next(UNetModel2D_Next):
+    def __init__(
+            self,
+            input_channels,
+            model_channels,
+            output_channels,
+            context_dim = 788,
+            num_noattn_blocks=(2, 2, 2, 2),
+            channel_mult=(1, 2, 4, 8),
+            second_dim=(4, 4, 4, 4),
+            with_attn=[True, True, True, False],
+            num_heads=8,
+            num_head_channels=None,
+            use_checkpoint=False,
+            parts = ['global', 'data', 'context']):
+
+        super(UNetModel2D_Next, self).__init__()
+
+        self.input_channels = input_channels
+        self.model_channels = model_channels
+        self.output_channels = output_channels
+        self.num_noattn_blocks = num_noattn_blocks
+        self.channel_mult = channel_mult
+        self.second_dim = second_dim
+        self.with_attn = with_attn
+        self.num_heads = num_heads
+        self.num_head_channels = num_head_channels
+
+        self.parts = parts if isinstance(parts, list) else [parts]
+        self.glayer_included = 'global' in self.parts
+        self.dlayer_included = 'data' in self.parts
+        self.clayer_included = 'context' in self.parts
+        self.layer_sequence_ordering = []
+
+        #################
+        # global layers #
+        #################
+
+        time_embed_dim = model_channels * 4
+        if self.glayer_included:
+            self.time_embed = nn.Sequential(
+                linear(model_channels, time_embed_dim),
+                nn.SiLU(),
+                linear(time_embed_dim, time_embed_dim),
+            )
+
+        ################
+        # input layers #
+        ################
+
+        if self.dlayer_included:
+            self.data_blocks = nn.ModuleList([])
+            FCBlockDefault = partial(
+                FCBlock_MultiDim, dropout=0, use_checkpoint=use_checkpoint)
+        else:
+            def dummy(*args, **kwargs):
+                return None
+            FCBlockDefault = dummy
+
+        if self.clayer_included:
+            self.context_blocks = nn.ModuleList([])
+            CrossAttnDefault = partial(
+                SpatialTransformer, 
+                context_dim=context_dim,
+                disable_self_attn=False, )
+        else:
+            def dummy(*args, **kwargs):
+                return None
+            CrossAttnDefault = dummy
+
+        sdim = second_dim[0]
+        current_channel = [model_channels, sdim, 1]
+        one_layer = Linear_MultiDim([input_channels], current_channel, bias=True)
+        self.add_data_layer(one_layer)
+        self.layer_sequence_ordering.append('save_hidden_feature')
+        input_block_channels = [current_channel]
+
+        for level_idx, (mult, sdim) in enumerate(zip(channel_mult, second_dim)):
+            for _ in range(self.num_noattn_blocks[level_idx]):
+                layer = FCBlockDefault(
+                    current_channel, 
+                    time_embed_dim,
+                    out_channels = [mult*model_channels, sdim, 1],)
+
+                self.add_data_layer(layer)
+                current_channel = [mult*model_channels, sdim, 1]
+
+                if with_attn[level_idx]:
+                    d_head, n_heads = self.get_d_head_n_heads(current_channel[0])
+                    layer = CrossAttnDefault(
+                        in_channels=current_channel[0],
+                        d_head=d_head, n_heads=n_heads,)
+                    self.add_context_layer(layer)
+
+                input_block_channels.append(current_channel)
+                self.layer_sequence_ordering.append('save_hidden_feature')
+
+            if level_idx != len(channel_mult) - 1:
+                layer = Linear_MultiDim(current_channel, current_channel, bias=True,)
+                self.add_data_layer(layer)
+                input_block_channels.append(current_channel)
+                self.layer_sequence_ordering.append('save_hidden_feature')
+
+        self.i_order = copy.deepcopy(self.layer_sequence_ordering)
+        self.layer_sequence_ordering = []
+
+        #################
+        # middle layers #
+        #################
+
+        self.add_data_layer(FCBlockDefault(current_channel, time_embed_dim, ))
+        d_head, n_heads = self.get_d_head_n_heads(current_channel[0])
+        self.add_context_layer(CrossAttnDefault(in_channels=current_channel[0], d_head=d_head, n_heads=n_heads))
+        self.add_data_layer(FCBlockDefault(current_channel, time_embed_dim, ))
+
+        self.m_order = copy.deepcopy(self.layer_sequence_ordering)
+        self.layer_sequence_ordering = []
+
+        #################
+        # output layers #
+        #################
+        for level_idx, (mult, sdim) in list(enumerate(zip(channel_mult, second_dim)))[::-1]:
+            for _ in range(self.num_noattn_blocks[level_idx] + 1):
+                self.layer_sequence_ordering.append('load_hidden_feature')
+                extra_channel = input_block_channels.pop()
+                layer = FCBlockDefault(
+                    [current_channel[0] + extra_channel[0]] + current_channel[1:],
+                    time_embed_dim,
+                    out_channels = [mult*model_channels, sdim, 1], )
+
+                self.add_data_layer(layer)
+                current_channel = [mult*model_channels, sdim, 1]
+
+                if with_attn[level_idx]:
+                    d_head, n_heads = self.get_d_head_n_heads(current_channel[0])
+                    layer = CrossAttnDefault(
+                        in_channels=current_channel[0], d_head=d_head, n_heads=n_heads)
+                    self.add_context_layer(layer)
+
+            if level_idx != 0:
+                layer = Linear_MultiDim(current_channel, current_channel, bias=True, )
+                self.add_data_layer(layer)
+
+        layer = nn.Sequential(
+            normalization(current_channel[0]),
+            nn.SiLU(),
+            zero_module(Linear_MultiDim(current_channel, [output_channels], bias=True, )),
+        )
+        self.add_data_layer(layer)
+
+        self.o_order = copy.deepcopy(self.layer_sequence_ordering)
+        self.layer_order = copy.deepcopy(self.i_order + self.m_order + self.o_order)
+        del self.layer_sequence_ordering
+
+        self.parameter_group = {}
+        if self.glayer_included:
+            self.parameter_group['global'] = self.time_embed
+        if self.dlayer_included:
+            self.parameter_group['data'] = self.data_blocks
+        if self.clayer_included:
+            self.parameter_group['context'] = self.context_blocks

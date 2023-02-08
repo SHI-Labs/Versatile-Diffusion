@@ -9,383 +9,221 @@ from contextlib import contextmanager
 from lib.model_zoo.common.get_model import get_model, register
 from lib.log_service import print_log
 
-version = '0'
 symbol = 'vd'
 
 from .diffusion_utils import \
     count_params, extract_into_tensor, make_beta_schedule
 from .distributions import normal_kl, DiagonalGaussianDistribution
 
-from .autoencoder import AutoencoderKL
+from .autokl import AutoencoderKL
 from .ema import LitEma
 
-from .sd import highlight_print, DDPM, SD_T2I
+def highlight_print(info):
+    print_log('')
+    print_log(''.join(['#']*(len(info)+4)))
+    print_log('# '+info+' #')
+    print_log(''.join(['#']*(len(info)+4)))
+    print_log('')
 
-@register('vd_basic', version)
-class VD_Basic(SD_T2I):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        def is_part_of_crossattn(name):
-            if name.find('.1.norm')!=-1:
-                return True
-            if name.find('.1.proj_in')!=-1:
-                return True
-            if name.find('.1.transformer_blocks')!=-1:
-                return True
-            if name.find('.1.proj_out')!=-1:
-                return True
-            return False
-
-        self.parameter_group = {
-            'context' :[v for n, v in self.model.named_parameters() if is_part_of_crossattn(n)],
-            'data'    :[v for n, v in self.model.named_parameters() if not is_part_of_crossattn(n)],
-        }
-
-        self.encode_image = None
-        self.encode_text = None
-        self._predict_eps_from_xstart = None
-        self._prior_bpd = None
-        self.p_mean_variance = None
-        self.p_sample = None
-        self.progressive_denoising = None
-        self.p_sample_loop = None
-        self.sample = None
+class String_Reg_Buffer(nn.Module):
+    def __init__(self, output_string):
+        super().__init__()
+        torch_string = torch.ByteTensor(list(bytes(output_string, 'utf8')))
+        self.register_buffer('output_string', torch_string)
 
     @torch.no_grad()
-    def encode_input(self, im):
-        encoder_posterior = self.first_stage_model.encode(im)
-        if isinstance(encoder_posterior, DiagonalGaussianDistribution):
-            z = encoder_posterior.sample()
-        elif isinstance(encoder_posterior, torch.Tensor):
-            z = encoder_posterior
-        else:
-            raise NotImplementedError("Encoder_posterior of type '{}' not yet implemented".format(type(encoder_posterior)))
-        return z * self.scale_factor
+    def forward(self, *args, **kwargs):
+        list_str = self.output_string.tolist()
+        output_string = bytes(list_str)
+        output_string = output_string.decode()
+        return output_string
 
-    @torch.no_grad()
-    def decode_latent(self, z):
-        z = 1. / self.scale_factor * z
-        return self.first_stage_model.decode(z)
-
-    @torch.no_grad()
-    def clip_encode_vision(self, vision, encode_type='encode_vision'):
-        clip_encode_type = self.cond_stage_model.encode_type
-        self.cond_stage_model.encode_type = encode_type
-        if isinstance(vision, torch.Tensor):
-            vision = ((vision+1)/2).to('cpu').numpy()
-            vision = np.transpose(vision, (0, 2, 3, 1))
-            vision = [vi for vi in vision]
-
-        embedding = self.encode_conditioning(vision)
-        self.cond_stage_model.encode_type = clip_encode_type
-        return embedding
-
-    def encode_conditioning(self, c):
-        if hasattr(self.cond_stage_model, 'encode') and callable(self.cond_stage_model.encode):
-            c = self.cond_stage_model.encode(c)
-            if isinstance(c, DiagonalGaussianDistribution):
-                c = c.mode()
-        else:
-            c = self.cond_stage_model(c)
-        return c
-
-    # legacy
-    def get_learned_conditioning(self, c):
-        return self.encode_conditioning(c)
-
-    def forward(self, x, c, noise=None):
-        t = torch.randint(0, self.num_timesteps, (x.shape[0],), device=x.device).long()
-        if self.cond_stage_trainable:
-            c = self.encode_conditioning(c)
-        return self.p_losses(x, c, t, noise)
-
-@register('vd_dc', version)
-class VD_DualContext(SD_T2I):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        def is_part_of_trans(name):
-            if name.find('.1.norm')!=-1:
-                return True
-            if name.find('.1.proj_in')!=-1:
-                return True
-            if name.find('.1.transformer_blocks')!=-1:
-                return True
-            if name.find('.1.proj_out')!=-1:
-                return True
-            return False
-
-        self.parameter_group = {
-            'transformers' : [v for n, v in self.model.named_parameters() if is_part_of_trans(n)],
-            'other' :[v for n, v in self.model.named_parameters() if not is_part_of_trans(n)],
-        }
-
-    def apply_model(self, x_noisy, t, cond, cond_type):
-        if cond_type in ['prompt', 'text']:
-            which_attn = 0
-        elif cond_type in ['vision', 'visual', 'image']:
-            which_attn = 1
-        elif isinstance(cond_type, float):
-            assert 0 < cond_type < 1, \
-                'A special cond_type that will doing a random mix between two input condition, '\
-                'rand() < cond_type is text, else visual'
-            which_attn = cond_type
-        else:
-            assert False
-        return self.model.diffusion_model(x_noisy, t, cond, which_attn=which_attn)
-
-    def p_losses(self, x_start, cond, t, noise=None, cond_type=None):
-        noise = torch.randn_like(x_start) if noise is None else noise
-        x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
-        model_output = self.apply_model(x_noisy, t, cond, cond_type=cond_type)
-
-        loss_dict = {}
-        prefix = 'train' if self.training else 'val'
-
-        if self.parameterization == "x0":
-            target = x_start
-        elif self.parameterization == "eps":
-            target = noise
-        else:
-            raise NotImplementedError()
-
-        loss_simple = self.get_loss(model_output, target, mean=False).mean([1, 2, 3])
-        loss_dict['loss_simple'] = loss_simple.mean()
-
-        logvar_t = self.logvar[t].to(self.device)
-        loss = loss_simple / torch.exp(logvar_t) + logvar_t
-
-        if self.learn_logvar:
-            loss_dict['loss_gamma'] = loss.mean()
-            loss_dict['logvar'    ] = self.logvar.data.mean()
-
-        loss = self.l_simple_weight * loss.mean()
-
-        loss_vlb = self.get_loss(model_output, target, mean=False).mean(dim=(1, 2, 3))
-        loss_vlb = (self.lvlb_weights[t] * loss_vlb).mean()
-        loss_dict['loss_vlb'] = loss_vlb
-
-        loss += (self.original_elbo_weight * loss_vlb)
-        loss_dict.update({'Loss': loss})
-
-        return loss, loss_dict
-
-    @torch.no_grad()
-    def clip_encode_text(self, text):
-        clip_encode_type = self.cond_stage_model.encode_type
-        self.cond_stage_model.encode_type = 'encode_text'
-        embedding = self.get_learned_conditioning(text)
-        self.cond_stage_model.encode_type = clip_encode_type
-        return embedding
-
-    @torch.no_grad()
-    def clip_encode_vision(self, vision, encode_type='encode_vision'):
-        clip_encode_type = self.cond_stage_model.encode_type
-        self.cond_stage_model.encode_type = encode_type
-        if isinstance(vision, torch.Tensor):
-            vision = ((vision+1)/2).to('cpu').numpy()
-            vision = np.transpose(vision, (0, 2, 3, 1))
-            vision = [vi for vi in vision]
-        embedding = self.get_learned_conditioning(vision)
-        self.cond_stage_model.encode_type = clip_encode_type
-        return embedding
-
-    def get_learned_conditioning(self, c):
-        if hasattr(self.cond_stage_model, 'encode') and callable(self.cond_stage_model.encode):
-            c = self.cond_stage_model.encode(c)
-            if isinstance(c, DiagonalGaussianDistribution):
-                c = c.mode()
-        else:
-            c = self.cond_stage_model(c)
-        return c
-
-    def forward(self, x, c, noise=None, cond_type=None):
-        t = torch.randint(0, self.num_timesteps, (x.shape[0],), device=x.device).long()
-        if self.cond_stage_trainable:
-            c = self.get_learned_conditioning(c)
-        return self.p_losses(x, c, t, noise, cond_type=cond_type)
-
-@register('vd', version)
-class VD(DDPM):
+@register('vd_v2_0')
+class VD_v2_0(nn.Module):
     def __init__(self,
-                 autokl_cfg,
-                 optimus_cfg,
-                 clip_cfg,
-                 scale_factor=1.0,
-                 scale_by_std=False,
-                 *args, 
-                 **kwargs):
-        self.scale_by_std = scale_by_std
-        super().__init__(*args, **kwargs)
+                 vae_cfg_list,
+                 ctx_cfg_list,
+                 diffuser_cfg_list,
+                 global_layer_ptr=None,
 
-        self.autokl = get_model()(autokl_cfg)
-        self.optimus = get_model()(optimus_cfg)
-        self.clip = get_model()(clip_cfg)
+                 parameterization="eps",
+                 timesteps=1000,
+                 use_ema=False,
 
-        self.concat_mode = 'crossattn'
-        if not scale_by_std:
-            self.scale_factor = scale_factor
-        else:
-            self.register_buffer('scale_factor', torch.tensor(scale_factor))
+                 beta_schedule="linear",
+                 beta_linear_start=1e-4,
+                 beta_linear_end=2e-2,
+                 given_betas=None,
+                 cosine_s=8e-3,
+
+                 loss_type="l2",
+                 l_simple_weight=1.,
+                 l_elbo_weight=0.,
+                 
+                 v_posterior=0.,
+                 learn_logvar=False, 
+                 logvar_init=0, 
+
+                 latent_scale_factor=None,):
+
+        super().__init__()
+        assert parameterization in ["eps", "x0"], \
+            'currently only supporting "eps" and "x0"'
+        self.parameterization = parameterization
+        highlight_print("Running in {} mode".format(self.parameterization))
+
+        self.vae = self.get_model_list(vae_cfg_list)
+        self.ctx = self.get_model_list(ctx_cfg_list)
+        self.diffuser = self.get_model_list(diffuser_cfg_list)
+        self.global_layer_ptr = global_layer_ptr
+
+        assert self.check_diffuser(), 'diffuser layers are not aligned!'
+
+        self.use_ema = use_ema
+        if self.use_ema:
+            self.model_ema = LitEma(self.model)
+            print_log(f"Keeping EMAs of {len(list(self.model_ema.buffers()))}.")
+
+        self.loss_type = loss_type
+        self.l_simple_weight = l_simple_weight
+        self.l_elbo_weight = l_elbo_weight
+        self.v_posterior = v_posterior
         self.device = 'cpu'
-        self.parameter_group = self.create_parameter_group()
 
-    def create_parameter_group(self):
-        def is_part_of_unet_image(name):
-            if name.find('.unet_image.')!=-1:
-                return True
-            return False
-        def is_part_of_unet_text(name):
-            if name.find('.unet_text.')!=-1:
-                return True
-            return False
-        def is_part_of_trans(name):
-            if name.find('.1.norm')!=-1:
-                return True
-            if name.find('.1.proj_in')!=-1:
-                return True
-            if name.find('.1.transformer_blocks')!=-1:
-                return True
-            if name.find('.1.proj_out')!=-1:
-                return True
-            return False
-        parameter_group = {
-            'image_trans' : [],
-            'image_rest'  : [],
-            'text_trans'  : [],
-            'text_rest'   : [],
-            'rest'        : [],}
-        for pname, para in self.model.named_parameters():
-            if is_part_of_unet_image(pname):
-                if is_part_of_trans(pname):
-                    parameter_group['image_trans'].append(para)
-                else:
-                    parameter_group['image_rest'].append(para)
-            elif is_part_of_unet_text(pname):
-                if is_part_of_trans(pname):
-                    parameter_group['text_trans'].append(para)
-                else:
-                    parameter_group['text_rest'].append(para)
-            else:
-                parameter_group['rest'].append(para)
+        self.register_schedule(
+            given_betas=given_betas,
+            beta_schedule=beta_schedule,
+            timesteps=timesteps,
+            linear_start=beta_linear_start,
+            linear_end=beta_linear_end,
+            cosine_s=cosine_s)
 
-        return parameter_group
+        self.learn_logvar = learn_logvar
+        self.logvar = torch.full(fill_value=logvar_init, size=(self.num_timesteps,))
+        if self.learn_logvar:
+            self.logvar = nn.Parameter(self.logvar, requires_grad=True)
+
+        self.latent_scale_factor = {} if latent_scale_factor is None else latent_scale_factor
+
+        self.parameter_group = {}
+        for namei, diffuseri in self.diffuser.items():
+            self.parameter_group.update({
+                'diffuser_{}_{}'.format(namei, pgni):pgi for pgni, pgi in diffuseri.parameter_group.items()
+            })
 
     def to(self, device):
         self.device = device
         super().to(device)
 
-    @torch.no_grad()
-    def on_train_batch_start(self, x):
-        # only for very first batch
-        if self.scale_by_std:
-            assert self.scale_factor == 1., \
-                'rather not use custom rescaling and std-rescaling simultaneously'
-            # set rescale weight to 1./std of encodings
-            encoder_posterior = self.encode_first_stage(x)
-            z = self.get_first_stage_encoding(encoder_posterior).detach()
-            del self.scale_factor
-            self.register_buffer('scale_factor', 1. / z.flatten().std())
-            highlight_print("setting self.scale_factor to {}".format(self.scale_factor))
+    def get_model_list(self, cfg_list):
+        net = nn.ModuleDict()
+        for name, cfg in cfg_list:
+            if not isinstance(cfg, str):
+                net[name] = get_model()(cfg)
+            else:
+                net[name] = String_Reg_Buffer(cfg)
+        return net
 
-    @torch.no_grad()
-    def autokl_encode(self, image):
-        encoder_posterior = self.autokl.encode(image)
-        z = encoder_posterior.sample()
-        return self.scale_factor * z
+    def register_schedule(self, 
+                          given_betas=None, 
+                          beta_schedule="linear", 
+                          timesteps=1000,
+                          linear_start=1e-4, 
+                          linear_end=2e-2, 
+                          cosine_s=8e-3):
+        if given_betas is not None:
+            betas = given_betas
+        else:
+            betas = make_beta_schedule(beta_schedule, timesteps, linear_start=linear_start, linear_end=linear_end,
+                                       cosine_s=cosine_s)
+        alphas = 1. - betas
+        alphas_cumprod = np.cumprod(alphas, axis=0)
+        alphas_cumprod_prev = np.append(1., alphas_cumprod[:-1])
 
-    @torch.no_grad()
-    def autokl_decode(self, z):
-        z = 1. / self.scale_factor * z
-        return self.autokl.decode(z)
+        timesteps, = betas.shape
+        self.num_timesteps = int(timesteps)
+        self.linear_start = linear_start
+        self.linear_end = linear_end
+        assert alphas_cumprod.shape[0] == self.num_timesteps, \
+            'alphas have to be defined for each timestep'
 
-    def mask_tokens(inputs, tokenizer, args):
-        labels = inputs.clone()
-        # We sample a few tokens in each sequence for masked-LM training (with probability args.mlm_probability defaults to 0.15 in Bert/RoBERTa)
-        
-        masked_indices = torch.bernoulli(torch.full(labels.shape, args.mlm_probability)).to(torch.uint8)
-        labels[masked_indices==1] = -1  # We only compute loss on masked tokens
+        to_torch = partial(torch.tensor, dtype=torch.float32)
 
-        # 80% of the time, we replace masked input tokens with tokenizer.mask_token ([MASK])
-        indices_replaced = torch.bernoulli(torch.full(labels.shape, 0.8)).to(torch.uint8) & masked_indices
-        inputs[indices_replaced] = tokenizer.convert_tokens_to_ids(tokenizer.mask_token)
+        self.register_buffer('betas', to_torch(betas))
+        self.register_buffer('alphas_cumprod', to_torch(alphas_cumprod))
+        self.register_buffer('alphas_cumprod_prev', to_torch(alphas_cumprod_prev))
 
-        # 10% of the time, we replace masked input tokens with random word
-        indices_random = torch.bernoulli(torch.full(labels.shape, 0.5)).to(torch.uint8) & masked_indices & ~indices_replaced
-        indices_random = indices_random
-        random_words = torch.randint(len(tokenizer), labels.shape, dtype=torch.long)
-        inputs[indices_random] = random_words[indices_random]
+        # calculations for diffusion q(x_t | x_{t-1}) and others
+        self.register_buffer('sqrt_alphas_cumprod', to_torch(np.sqrt(alphas_cumprod)))
+        self.register_buffer('sqrt_one_minus_alphas_cumprod', to_torch(np.sqrt(1. - alphas_cumprod)))
+        self.register_buffer('log_one_minus_alphas_cumprod', to_torch(np.log(1. - alphas_cumprod)))
+        self.register_buffer('sqrt_recip_alphas_cumprod', to_torch(np.sqrt(1. / alphas_cumprod)))
+        self.register_buffer('sqrt_recipm1_alphas_cumprod', to_torch(np.sqrt(1. / alphas_cumprod - 1)))
 
-        # The rest of the time (10% of the time) we keep the masked input tokens unchanged
-        return inputs, labels
+        # calculations for posterior q(x_{t-1} | x_t, x_0)
+        posterior_variance = (1 - self.v_posterior) * betas * (1. - alphas_cumprod_prev) / (
+                    1. - alphas_cumprod) + self.v_posterior * betas
+        # above: equal to 1. / (1. / (1. - alpha_cumprod_tm1) + alpha_t / beta_t)
+        self.register_buffer('posterior_variance', to_torch(posterior_variance))
+        # below: log calculation clipped because the posterior variance is 0 at the beginning of the diffusion chain
+        self.register_buffer('posterior_log_variance_clipped', to_torch(np.log(np.maximum(posterior_variance, 1e-20))))
+        self.register_buffer('posterior_mean_coef1', to_torch(
+            betas * np.sqrt(alphas_cumprod_prev) / (1. - alphas_cumprod)))
+        self.register_buffer('posterior_mean_coef2', to_torch(
+            (1. - alphas_cumprod_prev) * np.sqrt(alphas) / (1. - alphas_cumprod)))
 
-    @torch.no_grad()
-    def optimus_encode(self, text):
-        tokenizer = self.optimus.tokenizer_encoder
-        token = [tokenizer.tokenize(sentence.lower()) for sentence in text]
-        token_id = []
-        for tokeni in token:
-            token_sentence = [tokenizer._convert_token_to_id(i) for i in tokeni]
-            token_sentence = tokenizer.add_special_tokens_single_sentence(token_sentence)
-            token_id.append(torch.LongTensor(token_sentence))
-        token_id = torch._C._nn.pad_sequence(token_id, batch_first=True, padding_value=0.0)
-        token_id = token_id.to(self.device)
-        z = self.optimus.encoder(token_id, attention_mask=(token_id > 0).float())[1]
-        z_mu, z_logvar = self.optimus.encoder.linear(z).chunk(2, -1)
-        # z_sampled = self.optimus.reparameterize(z_mu, z_logvar, 1)
-        return z_mu.squeeze(1)
+        if self.parameterization == "eps":
+            lvlb_weights = self.betas ** 2 / (
+                        2 * self.posterior_variance * to_torch(alphas) * (1 - self.alphas_cumprod))
+        elif self.parameterization == "x0":
+            lvlb_weights = 0.5 * np.sqrt(torch.Tensor(alphas_cumprod)) / (2. * 1 - torch.Tensor(alphas_cumprod))
+        else:
+            raise NotImplementedError("mu not supported")
+        # TODO how to choose this term
+        lvlb_weights[0] = lvlb_weights[1]
+        self.register_buffer('lvlb_weights', lvlb_weights, persistent=False)
+        assert not torch.isnan(self.lvlb_weights).all()
 
-    @torch.no_grad()
-    def optimus_decode(self, z, temperature=1.0):
-        bos_token = self.optimus.tokenizer_decoder.encode('<BOS>')
-        eos_token = self.optimus.tokenizer_decoder.encode('<EOS>')
-        context_tokens = torch.LongTensor(bos_token).to(z.device)
+    @contextmanager
+    def ema_scope(self, context=None):
+        if self.use_ema:
+            self.model_ema.store(self.model.parameters())
+            self.model_ema.copy_to(self.model)
+            if context is not None:
+                print_log(f"{context}: Switched to EMA weights")
+        try:
+            yield None
+        finally:
+            if self.use_ema:
+                self.model_ema.restore(self.model.parameters())
+                if context is not None:
+                    print_log(f"{context}: Restored training weights")
 
-        from .optimus import sample_single_sequence_conditional
-        sentenses = []
-        for zi in z:
-            out = sample_single_sequence_conditional(
-                model=self.optimus.decoder,
-                context=context_tokens,
-                past=zi, temperature=temperature, 
-                top_k=0, top_p=1.0,
-                max_length=30,
-                eos_token = eos_token[0],)
-            text = self.optimus.tokenizer_decoder.decode(out.tolist(), clean_up_tokenization_spaces=True)
-            text = text.split()[1:-1]
-            text = ' '.join(text)
-            sentenses.append(text)
-        return sentenses
+    def q_mean_variance(self, x_start, t):
+        """
+        Get the distribution q(x_t | x_0).
+        :param x_start: the [N x C x ...] tensor of noiseless inputs.
+        :param t: the number of diffusion steps (minus 1). Here, 0 means one step.
+        :return: A tuple (mean, variance, log_variance), all of x_start's shape.
+        """
+        mean = (extract_into_tensor(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start)
+        variance = extract_into_tensor(1.0 - self.alphas_cumprod, t, x_start.shape)
+        log_variance = extract_into_tensor(self.log_one_minus_alphas_cumprod, t, x_start.shape)
+        return mean, variance, log_variance
 
-    @torch.no_grad()
-    def clip_encode_text(self, text, encode_type='encode_text'):
-        swap_type = self.clip.encode_type
-        self.clip.encode_type = encode_type
-        embedding = self.clip.encode(text)
-        self.clip.encode_type = swap_type
-        return embedding
+    def predict_start_from_noise(self, x_t, t, noise):
+        value1 = extract_into_tensor(
+            self.sqrt_recip_alphas_cumprod, t, x_t.shape)
+        value2 = extract_into_tensor(
+            self.sqrt_recipm1_alphas_cumprod, t, x_t.shape)
+        return value1*x_t -value2*noise
 
-    @torch.no_grad()
-    def clip_encode_vision(self, vision, encode_type='encode_vision'):
-        swap_type = self.clip.encode_type
-        self.clip.encode_type = encode_type
-        if isinstance(vision, torch.Tensor):
-            vision = ((vision+1)/2).to('cpu').numpy()
-            vision = np.transpose(vision, (0, 2, 3, 1))
-            vision = [vi for vi in vision]
-        embedding = self.clip.encode(vision)
-        self.clip.encode_type = swap_type
-        return embedding
+    def q_sample(self, x_start, t, noise=None):
+        noise = torch.randn_like(x_start) if noise is None else noise
+        return (extract_into_tensor(self.sqrt_alphas_cumprod, t, x_start.shape) * x_start +
+                extract_into_tensor(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape) * noise)
 
-    def forward(self, x, c, noise=None, xtype='image', ctype='prompt'):
-        t = torch.randint(0, self.num_timesteps, (x.shape[0],), device=x.device).long()
-        return self.p_losses(x, c, t, noise, xtype, ctype)
-
-    def apply_model(self, x_noisy, t, cond, xtype='image', ctype='prompt'):
-        return self.model.diffusion_model(x_noisy, t, cond, xtype, ctype)
-
-    def get_image_loss(self, pred, target, mean=True):
+    def get_loss(self, pred, target, mean=True):
         if self.loss_type == 'l1':
             loss = (target - pred).abs()
             if mean:
@@ -397,46 +235,221 @@ class VD(DDPM):
                 loss = torch.nn.functional.mse_loss(target, pred, reduction='none')
         else:
             raise NotImplementedError("unknown loss type '{loss_type}'")
+
         return loss
 
-    def get_text_loss(self, pred, target):
-        if self.loss_type == 'l1':
-            loss = (target - pred).abs()
-        elif self.loss_type == 'l2':
-            loss = torch.nn.functional.mse_loss(target, pred, reduction='none')
-        return loss
+    def forward(self, x_info, c_info):
+        x = x_info['x']
+        t = torch.randint(0, self.num_timesteps, (x.shape[0],), device=self.device).long()
+        return self.p_losses(x_info, t, c_info)
 
-    def p_losses(self, x_start, cond, t, noise=None, xtype='image', ctype='prompt'):
-        noise = torch.randn_like(x_start) if noise is None else noise
-        x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
-        model_output = self.apply_model(x_noisy, t, cond, xtype, ctype)
+    def p_losses(self, x_info, t, c_info, noise=None):
+        x = x_info['x']
+        noise = torch.randn_like(x) if noise is None else noise
+        x_noisy = self.q_sample(x_start=x, t=t, noise=noise)
+        x_info['x'] = x_noisy
+        model_output = self.apply_model(x_info, t, c_info)
 
         loss_dict = {}
 
         if self.parameterization == "x0":
-            target = x_start
+            target = x
         elif self.parameterization == "eps":
             target = noise
         else:
             raise NotImplementedError()
 
-        if xtype == 'image':
-            loss_simple = self.get_image_loss(model_output, target, mean=False).mean([1, 2, 3])
-        elif xtype == 'text':
-            loss_simple = self.get_text_loss(model_output, target).mean([1])
+        bs = model_output.shape[0]
+        loss_simple = self.get_loss(model_output, target, mean=False).view(bs, -1).mean(-1)
+        loss_dict['loss_simple'] = loss_simple.mean()
 
         logvar_t = self.logvar[t].to(self.device)
-        if logvar_t.sum().item() != 0:
-            assert False, "Default SD training has logvar fixed at 0"
-        if self.learn_logvar:
-            assert False, "Default SD training don't learn logvar"
-        if self.l_simple_weight != 1:
-            assert False, "Default SD training always set l_simple_weight==1"
+        loss = loss_simple / torch.exp(logvar_t) + logvar_t
 
-        loss = loss_simple.mean()
-        loss_dict['loss_simple'] = loss_simple.mean().item()
-        loss_dict['Loss'] = loss.item()
+        if self.learn_logvar:
+            loss_dict['loss_gamma'] = loss.mean()
+            loss_dict['logvar'    ] = self.logvar.data.mean()
+
+        loss = self.l_simple_weight * loss.mean()
+
+        loss_vlb = self.get_loss(model_output, target, mean=False).view(bs, -1).mean(-1)
+        loss_vlb = (self.lvlb_weights[t] * loss_vlb).mean()
+        loss_dict['loss_vlb'] = loss_vlb
+        loss_dict.update({'Loss': loss})
+
         return loss, loss_dict
 
-    def apply_model_dc(self, x_noisy, t, first_c, second_c, xtype='image', first_ctype='vision', second_ctype='prompt', mixed_ratio=0.5):
-        return self.model.diffusion_model.forward_dc(x_noisy, t, first_c, second_c, xtype, first_ctype, second_ctype, mixed_ratio)
+    @torch.no_grad()
+    def vae_encode(self, x, which, **kwargs):
+        z = self.vae[which].encode(x, **kwargs)
+        if self.latent_scale_factor is not None:
+            if self.latent_scale_factor.get(which, None) is not None:
+                scale = self.latent_scale_factor[which]
+                return scale * z
+        return z
+
+    @torch.no_grad()
+    def vae_decode(self, z, which, **kwargs):
+        if self.latent_scale_factor is not None:
+            if self.latent_scale_factor.get(which, None) is not None:
+                scale = self.latent_scale_factor[which]
+                z = 1./scale * z
+        x = self.vae[which].decode(z, **kwargs)
+        return x
+
+    @torch.no_grad()
+    def ctx_encode(self, x, which, **kwargs):
+        if which.find('vae_') == 0:
+            return self.vae[which[4:]].encode(x, **kwargs)
+        else:
+            return self.ctx[which].encode(x, **kwargs)
+
+    def ctx_encode_trainable(self, x, which, **kwargs):
+        if which.find('vae_') == 0:
+            return self.vae[which[4:]].encode(x, **kwargs)
+        else:
+            return self.ctx[which].encode(x, **kwargs)
+
+    def check_diffuser(self):
+        for idx, (_, diffuseri) in enumerate(self.diffuser.items()):
+            if idx==0:
+                order = diffuseri.layer_order
+            else:
+                if not order == diffuseri.layer_order:
+                    return False
+        return True
+
+    @torch.no_grad()
+    def on_train_batch_start(self, x):
+        pass
+
+    def on_train_batch_end(self, *args, **kwargs):
+        if self.use_ema:
+            self.model_ema(self.model)
+
+    def apply_model(self, x_info, timesteps, c_info):
+        x_type, x = x_info['type'], x_info['x']
+        c_type, c = c_info['type'], c_info['c']
+        dtype = x.dtype
+
+        hs = []
+
+        from .openaimodel import timestep_embedding
+
+        glayer_ptr = x_type if self.global_layer_ptr is None else self.global_layer_ptr
+        model_channels = self.diffuser[glayer_ptr].model_channels
+        t_emb = timestep_embedding(timesteps, model_channels, repeat_only=False).to(dtype)
+        emb = self.diffuser[glayer_ptr].time_embed(t_emb)
+
+        d_iter = iter(self.diffuser[x_type].data_blocks)
+        c_iter = iter(self.diffuser[c_type].context_blocks)
+
+        i_order = self.diffuser[x_type].i_order
+        m_order = self.diffuser[x_type].m_order
+        o_order = self.diffuser[x_type].o_order
+
+        h = x
+        for ltype in i_order:
+            if ltype == 'd':
+                module = next(d_iter)
+                h = module(h, emb, None)
+            elif ltype == 'c':
+                module = next(c_iter)
+                h = module(h, emb, c)
+            elif ltype == 'save_hidden_feature':
+                hs.append(h)
+
+        for ltype in m_order:
+            if ltype == 'd':
+                module = next(d_iter)
+                h = module(h, emb, None)
+            elif ltype == 'c':
+                module = next(c_iter)
+                h = module(h, emb, c)
+
+        for ltype in o_order:
+            if ltype == 'load_hidden_feature':
+                h = torch.cat([h, hs.pop()], dim=1)
+            elif ltype == 'd':
+                module = next(d_iter)
+                h = module(h, emb, None)
+            elif ltype == 'c':
+                module = next(c_iter)
+                h = module(h, emb, c)
+        o = h
+
+        return o
+
+    def context_mixing(self, x, emb, context_module_list, context_info_list, mixing_type):
+        nm = len(context_module_list)
+        nc = len(context_info_list)
+        assert nm == nc
+        context = [c_info['c'] for c_info in context_info_list]
+        cratio = np.array([c_info['ratio'] for c_info in context_info_list])
+        cratio = cratio / cratio.sum()
+
+        if mixing_type == 'attention':
+            h = None
+            for module, c, r in zip(context_module_list, context, cratio):
+                hi = module(x, emb, c) * r
+                h = h+hi if h is not None else hi
+            return h
+        elif mixing_type == 'layer':
+            ni = npr.choice(nm, p=cratio)
+            module = context_module_list[ni]
+            c = context[ni]
+            h = module(x, emb, c)
+            return h
+
+    def apply_model_multicontext(self, x_info, timesteps, c_info_list, mixing_type='attention'):
+        '''
+        context_info_list: [[context_type, context, ratio]] for 'attention'
+        '''
+
+        x_type, x = x_info['type'], x_info['x']
+        dtype = x.dtype
+
+        hs = []
+
+        from .openaimodel import timestep_embedding
+        model_channels = self.diffuser[x_type].model_channels
+        t_emb = timestep_embedding(timesteps, model_channels, repeat_only=False).to(dtype)
+        emb = self.diffuser[x_type].time_embed(t_emb)
+
+        d_iter = iter(self.diffuser[x_type].data_blocks)
+        c_iter_list = [iter(self.diffuser[c_info['type']].context_blocks) for c_info in c_info_list]
+
+        i_order = self.diffuser[x_type].i_order
+        m_order = self.diffuser[x_type].m_order
+        o_order = self.diffuser[x_type].o_order
+
+        h = x
+        for ltype in i_order:
+            if ltype == 'd':
+                module = next(d_iter)
+                h = module(h, emb, None)
+            elif ltype == 'c':
+                module_list = [next(c_iteri) for c_iteri in c_iter_list]
+                h = self.context_mixing(h, emb, module_list, c_info_list, mixing_type)
+            elif ltype == 'save_hidden_feature':
+                hs.append(h)
+
+        for ltype in m_order:
+            if ltype == 'd':
+                module = next(d_iter)
+                h = module(h, emb, None)
+            elif ltype == 'c':
+                module_list = [next(c_iteri) for c_iteri in c_iter_list]
+                h = self.context_mixing(h, emb, module_list, c_info_list, mixing_type)
+
+        for ltype in o_order:
+            if ltype == 'load_hidden_feature':
+                h = torch.cat([h, hs.pop()], dim=1)
+            elif ltype == 'd':
+                module = next(d_iter)
+                h = module(h, emb, None)
+            elif ltype == 'c':
+                module_list = [next(c_iteri) for c_iteri in c_iter_list]
+                h = self.context_mixing(h, emb, module_list, c_info_list, mixing_type)
+        o = h
+        return o

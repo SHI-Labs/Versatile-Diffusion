@@ -1,57 +1,57 @@
-openai_unet_sd:
-  type: openai_unet
+#########
+# v1 2d #
+#########
+
+openai_unet_2d_v1:
+  type: openai_unet_2d_next
   args:
-    image_size: null # no use
     in_channels: 4
     out_channels: 4
     model_channels: 320
     attention_resolutions: [ 4, 2, 1 ]
     num_res_blocks: [ 2, 2, 2, 2 ]
     channel_mult: [ 1, 2, 4, 4 ]
-    # disable_self_attentions: [ False, False, False, False ]  # converts the self-attention to a cross-attention layer if true
     num_heads: 8
-    use_spatial_transformer: True
-    transformer_depth: 1
     context_dim: 768
     use_checkpoint: True
-    legacy: False
+    parts: [global, data, context]
 
-openai_unet_dual_context:
-  super_cfg: openai_unet_sd
-  type: openai_unet_dual_context
-
-########################
-# Code cleaned version #
-########################
-
-openai_unet_2d:
-  type: openai_unet_2d
+openai_unet_2d_v1_g:
+  super_cfg: openai_unet_2d_v1
   args:
-    input_channels: 4
-    model_channels: 320
-    output_channels: 4
-    num_noattn_blocks: [ 2, 2, 2, 2 ]
-    channel_mult: [ 1, 2, 4, 4 ]
-    with_attn: [true, true, true, false]
-    num_heads: 8
-    context_dim: 768
-    use_checkpoint: True
+    parts: [global]
 
-openai_unet_0d:
-  type: openai_unet_0d
+openai_unet_2d_v1_d:
+  super_cfg: openai_unet_2d_v1
   args:
-    input_channels: 768
-    model_channels: 320
-    output_channels: 768
-    num_noattn_blocks: [ 2, 2, 2, 2 ]
-    channel_mult: [ 1, 2, 4, 4 ]
-    with_attn: [true, true, true, false]
-    num_heads: 8
-    context_dim: 768
-    use_checkpoint: True
+    parts: [data]
 
-openai_unet_0dmd:
-  type: openai_unet_0dmd
+openai_unet_2d_v1_c:
+  super_cfg: openai_unet_2d_v1
+  args:
+    parts: [context]
+
+openai_unet_2d_v1_gd:
+  super_cfg: openai_unet_2d_v1
+  args:
+    parts: [global, data]
+
+openai_unet_2d_v1_gc:
+  super_cfg: openai_unet_2d_v1
+  args:
+    parts: [global, context]
+
+openai_unet_2d_v1_dc:
+  super_cfg: openai_unet_2d_v1
+  args:
+    parts: [data, context]
+
+#########
+# v1 0d #
+#########
+
+openai_unet_0d_v1:
+  type: openai_unet_0d_next
   args:
     input_channels: 768
     model_channels: 320
@@ -63,10 +63,34 @@ openai_unet_0dmd:
     num_heads: 8
     context_dim: 768
     use_checkpoint: True
+    parts: [global, data, context]
 
-openai_unet_vd:
-  type: openai_unet_vd
+openai_unet_0d_v1_g:
+  super_cfg: openai_unet_0d_v1
   args:
-    unet_image_cfg: MODEL(openai_unet_2d)
-    unet_text_cfg: MODEL(openai_unet_0dmd)
-  
+    parts: [global]
+
+openai_unet_0d_v1_d:
+  super_cfg: openai_unet_0d_v1
+  args:
+    parts: [data]
+
+openai_unet_0d_v1_c:
+  super_cfg: openai_unet_0d_v1
+  args:
+    parts: [context]
+
+openai_unet_0d_v1_gd:
+  super_cfg: openai_unet_0d_v1
+  args:
+    parts: [global, data]
+
+openai_unet_0d_v1_gc:
+  super_cfg: openai_unet_0d_v1
+  args:
+    parts: [global, context]
+
+openai_unet_0d_v1_dc:
+  super_cfg: openai_unet_0d_v1
+  args:
+    parts: [data, context]

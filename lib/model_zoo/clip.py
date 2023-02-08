@@ -4,7 +4,6 @@ import numpy as np
 from functools import partial
 from lib.model_zoo.common.get_model import register
 
-version = '0'
 symbol = 'clip'
 
 class AbstractEncoder(nn.Module):
@@ -21,49 +20,57 @@ def disabled_train(self, mode=True):
     does not change anymore."""
     return self
 
-@register('clip_text_frozen', version)
-class FrozenCLIPTextEmbedder(AbstractEncoder):
-    """Uses the CLIP transformer encoder for text (from huggingface)"""
-    def __init__(self, version="openai/clip-vit-large-patch14", device="cuda", max_length=77):  # clip-vit-base-patch32
-        super().__init__()
-        self.tokenizer = CLIPTokenizer.from_pretrained(version)
-        self.transformer = CLIPTextModel.from_pretrained(version)
-        self.device = device
-        self.max_length = max_length   # TODO: typical value?
-        self.freeze()
+###############
+# for vd next #
+###############
 
-    def freeze(self):
-        self.transformer = self.transformer.eval()
-        #self.train = disabled_train
-        for param in self.parameters():
-            param.requires_grad = False
+from transformers import CLIPModel
 
-    def forward(self, text):
-        batch_encoding = self.tokenizer(text, truncation=True, max_length=self.max_length, return_length=True,
-                                        return_overflowing_tokens=False, padding="max_length", return_tensors="pt")
-        tokens = batch_encoding["input_ids"].to(self.device)
-        outputs = self.transformer(input_ids=tokens)
-        z = outputs.last_hidden_state
-        return z
-
-    def encode(self, text):
-        return self(text)
-
-from transformers import CLIPProcessor, CLIPModel
-
-@register('clip_frozen', version)
-class FrozenCLIP(AbstractEncoder):
+@register('clip_text_context_encoder')
+class CLIPTextContextEncoder(AbstractEncoder):
     def __init__(self, 
                  version="openai/clip-vit-large-patch14", 
                  max_length=77, 
-                 encode_type='encode_text',
+                 fp16=False, ):
+        super().__init__()
+        self.tokenizer = CLIPTokenizer.from_pretrained(version)
+        self.model = CLIPModel.from_pretrained(version)
+        self.max_length = max_length
+        self.fp16 = fp16
+        self.freeze()
+
+    def get_device(self):
+        # A trick to get device
+        return self.model.text_projection.weight.device
+
+    def freeze(self):
+        self.model = self.model.eval()
+        self.train = disabled_train
+        for param in self.parameters():
+            param.requires_grad = False
+        
+    def encode(self, text):
+        batch_encoding = self.tokenizer(
+            text, truncation=True, max_length=self.max_length, return_length=True,
+            return_overflowing_tokens=False, padding="max_length", return_tensors="pt")
+        tokens = batch_encoding["input_ids"].to(self.get_device())
+        outputs = self.model.text_model(input_ids=tokens)
+        z = self.model.text_projection(outputs.last_hidden_state)
+        z_pooled = self.model.text_projection(outputs.pooler_output)
+        z = z / torch.norm(z_pooled.unsqueeze(1), dim=-1, keepdim=True)
+        return z
+
+from transformers import CLIPProcessor
+
+@register('clip_image_context_encoder')
+class CLIPImageContextEncoder(AbstractEncoder):
+    def __init__(self, 
+                 version="openai/clip-vit-large-patch14", 
                  fp16=False, ):
         super().__init__()
         self.tokenizer = CLIPTokenizer.from_pretrained(version)
         self.processor = CLIPProcessor.from_pretrained(version)
         self.model = CLIPModel.from_pretrained(version)
-        self.max_length = max_length  # TODO: typical value?
-        self.encode_type = encode_type
         self.fp16 = fp16
         self.freeze()
 
@@ -77,102 +84,89 @@ class FrozenCLIP(AbstractEncoder):
         for param in self.parameters():
             param.requires_grad = False
 
-    def encode_text_pooled(self, text):
-        batch_encoding = self.tokenizer(text, truncation=True, max_length=self.max_length, return_length=True,
-                                        return_overflowing_tokens=False, padding="max_length", return_tensors="pt")
-        tokens = batch_encoding["input_ids"].to(self.get_device())
-        outputs = self.model.get_text_features(input_ids=tokens)
-        return outputs
-
-    def encode_vision_pooled(self, images):
-        inputs = self.processor(images=images, return_tensors="pt")
-        pixels = inputs['pixel_values'].half() if self.fp16 else inputs['pixel_values']
-        pixels = pixels.to(self.get_device())
-        return self.model.get_image_features(pixel_values=pixels)
-
-    def encode_text_noproj(self, text):
-        batch_encoding = self.tokenizer(text, truncation=True, max_length=self.max_length, return_length=True,
-                                        return_overflowing_tokens=False, padding="max_length", return_tensors="pt")
-        tokens = batch_encoding["input_ids"].to(self.get_device())
-        outputs = self.model.text_model(input_ids=tokens)
-        return outputs.last_hidden_state
-        
-    def encode_vision_noproj(self, images):
+    def _encode(self, images):
+        if isinstance(images, torch.Tensor):
+            import torchvision.transforms as tvtrans
+            images = [tvtrans.ToPILImage()(i) for i in images]
         inputs = self.processor(images=images, return_tensors="pt")
         pixels = inputs['pixel_values'].half() if self.fp16 else inputs['pixel_values']
         pixels = pixels.to(self.get_device())
         outputs = self.model.vision_model(pixel_values=pixels)
-        return outputs.last_hidden_state
-
-    def encode_text(self, text):
-        batch_encoding = self.tokenizer(text, truncation=True, max_length=self.max_length, return_length=True,
-                                        return_overflowing_tokens=False, padding="max_length", return_tensors="pt")
-        tokens = batch_encoding["input_ids"].to(self.get_device())
-        outputs = self.model.text_model(input_ids=tokens)
-        z = self.model.text_projection(outputs.last_hidden_state)
-        z_pooled = self.model.text_projection(outputs.pooler_output)
-        z = z / torch.norm(z_pooled.unsqueeze(1), dim=-1, keepdim=True)
-        return z
-
-    def encode_vision(self, images):
-        z = self.encode_vision_noproj(images)
+        z = outputs.last_hidden_state
         z = self.model.vision_model.post_layernorm(z)
         z = self.model.visual_projection(z)
         z_pooled = z[:, 0:1]
-        # z_pooled_normed = z_pooled / z_pooled.norm(dim=-1, keepdim=True)
         z = z / torch.norm(z_pooled, dim=-1, keepdim=True)
         return z
 
-    def encode(self, *args, **kwargs):
-        return getattr(self, self.encode_type)(*args, **kwargs)
+    @torch.no_grad()
+    def _encode_wmask(self, images, masks):
+        assert isinstance(masks, torch.Tensor)
+        assert (len(masks.shape)==4) and (masks.shape[1]==1)
+        masks = torch.clamp(masks, 0, 1)
+        masked_images = images*masks
+        masks = masks.float()
+        masks = F.interpolate(masks, [224, 224], mode='bilinear')
+        if masks.sum() == masks.numel():
+            return self._encode(images)
 
-#############################
-# copyed from justin's code #
-#############################
+        device = images.device
+        dtype = images.dtype
+        gscale = masks.mean(axis=[1, 2, 3], keepdim=True).flatten(2)
 
-@register('clip_vision_frozen_justin', version)
-class FrozenCLIPVisionEmbedder_Justin(AbstractEncoder):
-    """
-        Uses the CLIP image encoder.
-        """
-    def __init__(
-            self,
-            model='ViT-L/14',
-            jit=False,
-            device='cuda' if torch.cuda.is_available() else 'cpu',
-            antialias=False,
-        ):
-        super().__init__()
-        from . import clip_justin
-        self.model, _ = clip_justin.load(name=model, device=device, jit=jit)
-        self.device = device
-        self.antialias = antialias
+        vtoken_kernel_size = self.model.vision_model.embeddings.patch_embedding.kernel_size
+        vtoken_stride = self.model.vision_model.embeddings.patch_embedding.stride
+        mask_kernal = torch.ones([1, 1, *vtoken_kernel_size], device=device, requires_grad=False).float()
+        vtoken_mask = torch.nn.functional.conv2d(masks, mask_kernal, stride=vtoken_stride).flatten(2).transpose(1, 2)
+        vtoken_mask = vtoken_mask/np.prod(vtoken_kernel_size)
+        vtoken_mask = torch.concat([gscale, vtoken_mask], axis=1)
 
-        self.register_buffer('mean', torch.Tensor([0.48145466, 0.4578275, 0.40821073]), persistent=False)
-        self.register_buffer('std', torch.Tensor([0.26862954, 0.26130258, 0.27577711]), persistent=False)
+        import types
+        def customized_embedding_forward(self, pixel_values):
+            batch_size = pixel_values.shape[0]
+            patch_embeds = self.patch_embedding(pixel_values)  # shape = [*, width, grid, grid]
+            patch_embeds = patch_embeds.flatten(2).transpose(1, 2)
 
-        # I didn't call this originally, but seems like it was frozen anyway
-        self.freeze()
+            class_embeds = self.class_embedding.expand(batch_size, 1, -1)
+            embeddings = torch.cat([class_embeds, patch_embeds], dim=1)
+            embeddings = embeddings + self.position_embedding(self.position_ids)
+            embeddings = embeddings*vtoken_mask.to(embeddings.dtype)
+            return embeddings
 
-    def freeze(self):
-        self.transformer = self.model.eval()
-        for param in self.parameters():
-            param.requires_grad = False
+        old_forward = self.model.vision_model.embeddings.forward
+        self.model.vision_model.embeddings.forward = types.MethodType(
+            customized_embedding_forward, self.model.vision_model.embeddings)
 
-    def preprocess(self, x):
-        import kornia
-        # Expects inputs in the range -1, 1
-        x = kornia.geometry.resize(x, (224, 224),
-                                   interpolation='bicubic',align_corners=True,
-                                   antialias=self.antialias)
-        x = (x + 1.) / 2.
-        # renormalize according to clip
-        x = kornia.enhance.normalize(x, self.mean, self.std)
-        return x
+        z = self._encode(images)
+        self.model.vision_model.embeddings.forward = old_forward
+        z = z * vtoken_mask.to(dtype)
+        return z
 
-    def forward(self, x):
-        # x is assumed to be in range [-1,1]
-        return self.model.encode_image(self.preprocess(x)).float()
+    # def _encode_wmask(self, images, masks):
+    #     assert isinstance(masks, torch.Tensor)
+    #     assert (len(masks.shape)==4) and (masks.shape[1]==1)
+    #     masks = torch.clamp(masks, 0, 1)
+    #     masks = masks.float()
+    #     masks = F.interpolate(masks, [224, 224], mode='bilinear')
+    #     if masks.sum() == masks.numel():
+    #         return self._encode(images)
 
-    def encode(self, im):
-        return self(im).unsqueeze(1)
+    #     device = images.device
+    #     dtype = images.dtype
+
+    #     vtoken_kernel_size = self.model.vision_model.embeddings.patch_embedding.kernel_size
+    #     vtoken_stride = self.model.vision_model.embeddings.patch_embedding.stride
+    #     mask_kernal = torch.ones([1, 1, *vtoken_kernel_size], device=device, requires_grad=False).float()
+    #     vtoken_mask = torch.nn.functional.conv2d(masks, mask_kernal, stride=vtoken_stride).flatten(2).transpose(1, 2)
+    #     vtoken_mask = vtoken_mask/np.prod(vtoken_kernel_size)
+
+    #     z = self._encode(images)
+    #     z[:, 1:, :] = z[:, 1:, :] * vtoken_mask.to(dtype)
+    #     z[:, 0, :] = 0
+    #     return z
+
+    def encode(self, images, masks=None):
+        if masks is None:
+            return self._encode(images)
+        else:
+            return self._encode_wmask(images, masks)

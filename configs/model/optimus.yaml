@@ -89,9 +89,9 @@ optimus_gpt2_tokenizer:
     vocab_file: lib/model_zoo/optimus_models/vocab/gpt2-vocab.json
     merges_file: lib/model_zoo/optimus_models/vocab/gpt2-merges.txt
 
-optimus_vae:
+optimus_v1:
   super_cfg: optimus
-  type: optimus_vae
+  type: optimus_vae_next
   pth: pretrained/optimus-vae.pth
   args:
     encoder: MODEL(optimus_bert_encoder)

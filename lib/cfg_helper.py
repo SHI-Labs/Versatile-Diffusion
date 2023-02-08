@@ -146,42 +146,21 @@ class model_cfg_bank(object):
         return copy.deepcopy(cfg)
 
     def get_yaml_path(self, name):
-        if name.find('ldm')==0:
-            return osp.join(
-                self.cfg_dir, 'ldm.yaml')
-        elif name.find('comodgan')==0:
-            return osp.join(
-                self.cfg_dir, 'comodgan.yaml')
-        elif name.find('stylegan')==0:
-            return osp.join(
-                self.cfg_dir, 'stylegan.yaml')
-        elif name.find('absgan')==0:
-            return osp.join(
-                self.cfg_dir, 'absgan.yaml')
-        elif name.find('ashgan')==0:
-            return osp.join(
-                self.cfg_dir, 'ashgan.yaml')
-        elif name.find('sr3')==0:
-            return osp.join(
-                self.cfg_dir, 'sr3.yaml')
-        elif name.find('specdiffsr')==0:
-            return osp.join(
-                self.cfg_dir, 'specdiffsr.yaml')
-        elif name.find('openai_unet')==0:
+        if name.find('openai_unet')==0:
             return osp.join(
                 self.cfg_dir, 'openai_unet.yaml')
-        elif name.find('clip')==0:
+        elif (name.find('clip')==0) or (name.find('openclip')==0):
             return osp.join(
                 self.cfg_dir, 'clip.yaml')
-        elif name.find('sd')==0:
-            return osp.join(
-                self.cfg_dir, 'sd.yaml')
         elif name.find('vd')==0:
             return osp.join(
                 self.cfg_dir, 'vd.yaml')
         elif name.find('optimus')==0:
             return osp.join(
                 self.cfg_dir, 'optimus.yaml')
+        elif name.find('autokl')==0:
+            return osp.join(
+                self.cfg_dir, 'autokl.yaml')
         else:
             raise ValueError
 
@@ -223,54 +202,9 @@ class dataset_cfg_bank(object):
         return copy.deepcopy(cfg)
 
     def get_yaml_path(self, name):
-        if name.find('cityscapes')==0:
-            return osp.join(
-                self.cfg_dir, 'cityscapes.yaml')
-        elif name.find('div2k')==0:
-            return osp.join(
-                self.cfg_dir, 'div2k.yaml')
-        elif name.find('gandiv2k')==0:
-            return osp.join(
-                self.cfg_dir, 'gandiv2k.yaml')
-        elif name.find('srbenchmark')==0:
-            return osp.join(
-                self.cfg_dir, 'srbenchmark.yaml')
-        elif name.find('imagedir')==0:
-            return osp.join(
-                self.cfg_dir, 'imagedir.yaml')
-        elif name.find('places2')==0:
-            return osp.join(
-                self.cfg_dir, 'places2.yaml')
-        elif name.find('ffhq')==0:
-            return osp.join(
-                self.cfg_dir, 'ffhq.yaml')
-        elif name.find('imcpt')==0:
-            return osp.join(
-                self.cfg_dir, 'imcpt.yaml')
-        elif name.find('texture')==0:
-            return osp.join(
-                self.cfg_dir, 'texture.yaml')
-        elif name.find('openimages')==0:
-            return osp.join(
-                self.cfg_dir, 'openimages.yaml')
-        elif name.find('laion2b')==0:
+        if name.find('laion2b')==0:
             return osp.join(
                 self.cfg_dir, 'laion2b.yaml')
-        elif name.find('laionart')==0:
-            return osp.join(
-                self.cfg_dir, 'laionart.yaml')
-        elif name.find('celeba')==0:
-            return osp.join(
-                self.cfg_dir, 'celeba.yaml')
-        elif name.find('coyo')==0:
-            return osp.join(
-                self.cfg_dir, 'coyo.yaml')
-        elif name.find('pafc')==0:
-            return osp.join(
-                self.cfg_dir, 'pafc.yaml')
-        elif name.find('coco')==0:
-            return osp.join(
-                self.cfg_dir, 'coco.yaml')
         else:
             raise ValueError
 
@@ -350,8 +284,9 @@ def get_command_line_args():
     parser.add_argument('--config', type=str)
     parser.add_argument('--gpu', nargs='+', type=int)
 
-    parser.add_argument('--node_rank', type=int, default=0)
-    parser.add_argument('--nodes', type=int, default=1)
+    parser.add_argument('--node_rank', type=int)
+    parser.add_argument('--node_list', nargs='+', type=str)
+    parser.add_argument('--nodes', type=int)
     parser.add_argument('--addr', type=str, default='127.0.0.1')
     parser.add_argument('--port', type=int, default=11233)
  
@@ -385,8 +320,17 @@ def get_command_line_args():
     cfg.env.master_addr = args.addr
     cfg.env.master_port = args.port
     cfg.env.dist_url = 'tcp://{}:{}'.format(args.addr, args.port)
-    cfg.env.node_rank = args.node_rank
-    cfg.env.nodes = args.nodes
+
+    if args.node_list is None:
+        cfg.env.node_rank = 0 if args.node_rank is None else args.node_rank
+        cfg.env.nodes = 1 if args.nodes is None else args.nodes
+    else:
+        import socket
+        hostname = socket.gethostname()
+        assert cfg.env.master_addr == args.node_list[0] 
+        cfg.env.node_rank = args.node_list.index(hostname)
+        cfg.env.nodes = len(args.node_list)
+        cfg.env.node_list = args.node_list
 
     istrain = False if args.eval is not None else True
     isdebug = cfg.env.debug
@@ -534,8 +478,7 @@ def cfg_initiates(cfg):
     if istrain:
         if not isdebug:
             sig = cfgt.get('signature', [])
-            version = get_model().get_version(cfgm.type)
-            sig = sig + ['v{}'.format(version), 's{}'.format(cfge.rnd_seed)]
+            sig = sig + ['s{}'.format(cfge.rnd_seed)]
         else:
             sig = ['debug']
 
@@ -595,10 +538,14 @@ def cfg_initiates(cfg):
     ######################
 
     pprint.pprint(cfg)
-    with open(log_file, 'w') as f:
-        pprint.pprint(cfg, f)
-    with open(osp.join(log_dir, 'config.yaml'), 'w') as f:
-        yaml.dump(edict_2_dict(cfg), f)
+    if cfge.node_rank==0:
+        with open(log_file, 'w') as f:
+            pprint.pprint(cfg, f)
+        with open(osp.join(log_dir, 'config.yaml'), 'w') as f:
+            yaml.dump(edict_2_dict(cfg), f)
+    else:
+        with open(osp.join(log_dir, 'config.yaml.{}'.format(cfge.node_rank)), 'w') as f:
+            yaml.dump(edict_2_dict(cfg), f)
 
     #############
     # save code #
@@ -609,6 +556,7 @@ def cfg_initiates(cfg):
         save_code = cfgt.get('save_code', False)
     elif haseval:
         save_code = cfgv.get('save_code', False)
+    save_code = save_code and (cfge.node_rank==0)
 
     if save_code:
         codedir = osp.join(log_dir, 'code')

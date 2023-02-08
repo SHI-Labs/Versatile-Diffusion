@@ -1,0 +1,23 @@
+autokl:
+  symbol: autokl
+  find_unused_parameters: false
+
+autokl_v1:
+  super_cfg: autokl
+  type: autoencoderkl
+  args:
+    embed_dim: 4
+    ddconfig:
+      double_z: true
+      z_channels: 4
+      resolution: 256
+      in_channels: 3
+      out_ch: 3
+      ch: 128
+      ch_mult: [1, 2, 4, 4]
+      num_res_blocks: 2
+      attn_resolutions: []
+      dropout: 0.0
+    lossconfig: null
+  # pth: pretrained/kl-f8.pth
+  hfm: ['shi-labs/versatile-diffusion-model', 'pretrained_pth/kl-f8.pth']

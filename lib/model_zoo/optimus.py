@@ -11,10 +11,9 @@ from lib.model_zoo.common import utils
 
 from .optimus_models.tokenization_gpt2 import GPT2Tokenizer
 
-version = '0'
 symbol = 'optimus'
 
-@register('optimus_vae', version)
+@register('optimus_vae')
 class optimus_vae(nn.Module):
     """VAE with normal prior"""
     def __init__(self, encoder, decoder,  tokenizer_encoder, tokenizer_decoder, args): # 
@@ -634,25 +633,25 @@ class optimus_vae(nn.Module):
 
 from .optimus_models.optimus_bert import BertForLatentConnector_XX
 
-@register('optimus_bert_connector', version)
+@register('optimus_bert_connector')
 class optimus_bert_connector(BertForLatentConnector_XX):
     pass
 
 from .optimus_models.tokenization_bert import BertTokenizer
 
-@register('optimus_bert_tokenizer', version)
+@register('optimus_bert_tokenizer')
 class optimus_bert_tokenizer(BertTokenizer):
     pass
 
 from .optimus_models.optimus_gpt2 import GPT2ForLatentConnector_XX
 
-@register('optimus_gpt2_connector', version)
+@register('optimus_gpt2_connector')
 class optimus_gpt2_connector(GPT2ForLatentConnector_XX):
     pass
 
 from .optimus_models.tokenization_gpt2 import GPT2Tokenizer
 
-@register('optimus_gpt2_tokenizer', version)
+@register('optimus_gpt2_tokenizer')
 class optimus_gpt2_tokenizer(GPT2Tokenizer):
     pass
 
@@ -717,3 +716,48 @@ def top_k_top_p_filtering(logits, top_k=0, top_p=0.0, filter_value=-float('Inf')
         indices_to_remove = sorted_indices[sorted_indices_to_remove]
         logits[indices_to_remove] = filter_value
     return logits
+
+########################
+# compatible to vd 2.0 #
+########################
+
+@register('optimus_vae_next')
+class optimus_vae_next(optimus_vae):
+    def get_device(self):
+        return self.encoder.linear.weight.device
+
+    def encode(self, text, max_length=77):
+        tokenizer = self.tokenizer_encoder
+        token = [tokenizer.tokenize(sentence.lower()) for sentence in text]
+        token = [ti[0:max_length] for ti in token]
+        token_id = []
+        for tokeni in token:
+            token_sentence = [tokenizer._convert_token_to_id(i) for i in tokeni]
+            token_sentence = tokenizer.add_special_tokens_single_sentence(token_sentence)
+            token_id.append(torch.LongTensor(token_sentence))
+        token_id = torch._C._nn.pad_sequence(token_id, batch_first=True, padding_value=0.0)
+        token_id = token_id.to(self.get_device())
+        z = self.encoder(token_id, attention_mask=(token_id > 0).float())[1]
+        z_mu, z_logvar = self.encoder.linear(z).chunk(2, -1)
+        # z_sampled = self.reparameterize(z_mu, z_logvar, 1)
+        return z_mu.squeeze(1)
+
+    @torch.no_grad()
+    def decode(self, z, temperature=1.0):
+        bos_token = self.tokenizer_decoder.encode('<BOS>')
+        eos_token = self.tokenizer_decoder.encode('<EOS>')
+        context_tokens = torch.LongTensor(bos_token).to(z.device)
+        sentenses = []
+        for zi in z:
+            out = sample_single_sequence_conditional(
+                model=self.decoder,
+                context=context_tokens,
+                past=zi, temperature=temperature, 
+                top_k=0, top_p=1.0,
+                max_length=30,
+                eos_token = eos_token[0],)
+            text = self.tokenizer_decoder.decode(out.tolist(), clean_up_tokenization_spaces=True)
+            text = text.split()[1:-1]
+            text = ' '.join(text)
+            sentenses.append(text)
+        return sentenses
