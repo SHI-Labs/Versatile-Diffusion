@@ -102,9 +102,9 @@ The WebUI contains the following new features:
 - New Triple-Context Image Blender (support two images with optional masks + text)
 - New Multi-Context Image Blender (support up to four images with optional masks + text)
 
-The following old features have been temporary disables:
+The following old features have been temporarily disabled:
 
-- I2T2I is temporarily offline. We are actively seeking a better way of image editing.
+- I2T2I is offline. We are seeking a better way of image editing.
 
 ## Training
 
