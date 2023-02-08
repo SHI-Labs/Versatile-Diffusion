@@ -55,11 +55,9 @@ def preprocess_model_args(args):
 class get_model(object):
     def __init__(self):
         self.model = {}
-        self.version = {}
 
-    def register(self, model, name, version='x'):
+    def register(self, model, name):
         self.model[name] = model
-        self.version[name] = version
 
     def __call__(self, cfg, verbose=True):
         """
@@ -71,11 +69,9 @@ class get_model(object):
         if t.find('ldm')==0:
             from .. import ldm
         elif t=='autoencoderkl':
-            from .. import autoencoder
-        elif t.find('clip')==0:
+            from .. import autokl
+        elif (t.find('clip')==0) or (t.find('openclip')==0):
             from .. import clip
-        elif t.find('sd')==0:
-            from .. import sd
         elif t.find('vd')==0:
             from .. import vd
         elif t.find('openai_unet')==0:
@@ -110,11 +106,8 @@ class get_model(object):
 
         return net
 
-    def get_version(self, name):
-        return self.version[name]
-
-def register(name, version='x'):
+def register(name):
     def wrapper(class_):
-        get_model().register(class_, name, version)
+        get_model().register(class_, name)
         return class_
     return wrapper
