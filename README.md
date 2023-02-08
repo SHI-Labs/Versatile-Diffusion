@@ -11,7 +11,7 @@ This repo hosts the official implementary of:
 ## News
 
 - **[2023.02.07]: Our new demo is up and running on [🤗Hugging Face](https://huggingface.co/spaces/shi-labs/Versatile-Diffusion)!**
-- [2023.02.07]: A major update on Versatile Diffusion's code base with better structured model code and more convenience app.
+- **[2023.02.07]: A major update on Versatile Diffusion's code in which model code are better structured and all applications are supported in an convenience WebUI.**
 - [Previous]: Please see the deprecated [README](https://github.com/SHI-Labs/Versatile-Diffusion/blob/master/README_deprecated.md).
 
 ## Introduction
