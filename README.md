@@ -11,7 +11,7 @@ This repo hosts the official implementary of:
 ## News
 
 - **[2023.02.07]: Our new demo is up and running on [🤗Hugging Face](https://huggingface.co/spaces/shi-labs/Versatile-Diffusion)!**
-- **[2023.02.07]: A major update on Versatile Diffusion's code in which model code are better structured and all applications are supported in an convenience WebUI.**
+- **[2023.02.07]: A major update on Versatile Diffusion's code in which model codes are better structured, and all applications are supported in a convenience WebUI.**
 - [Previous]: Please see the deprecated [README](https://github.com/SHI-Labs/Versatile-Diffusion/blob/master/README_deprecated.md).
 
 ## Introduction
@@ -90,21 +90,21 @@ Model named with **-fp16** are models with float16 parameters, which is half siz
 
 ## Inference
 
-We now provide a convenience WebUI ```app.py``` that support all applications. Start the WebUI with the following command:
+We now provide a convenience WebUI ```app.py``` that supports all applications. Start the WebUI with the following command:
 
 ```
 python app.py
 ```
 
-The WebUI contains these following new features:
+The WebUI contains the following new features:
 
 - Improved and enhanced Image-Variation
-- New Triple-Context Image Blender (support 2 images with optional masks + text)
-- New Multi-Context Image Blender (support up to 4 images  with optional masks + text)
+- New Triple-Context Image Blender (support two images with optional masks + text)
+- New Multi-Context Image Blender (support up to four images with optional masks + text)
 
 The following old features have been temporary disables:
 
-- I2T2I is temporary offline, we are actively seeking a better way of image editing.
+- I2T2I is temporarily offline. We are actively seeking a better way of image editing.
 
 ## Training
 
