@@ -106,10 +106,6 @@ The following old features have been temporarily disabled:
 
 - I2T2I is offline. We are seeking a better way of image editing.
 
-## Training
-
-We will try our best to make it out soon.
-
 ## Gallery
 
 Text-to-Image
