@@ -92,7 +92,7 @@ class DDIMSampler(object):
         bs = shape[0]
         timesteps = self.ddim_timesteps
         if ('xt' in x_info) and (x_info['xt'] is not None):
-            xt = x_info['xt'].astype(dtype).to(device)
+            xt = x_info['xt'].type(dtype).to(device)
             x_info['x'] = xt
         elif ('x0' in x_info) and (x_info['x0'] is not None):
             x0 = x_info['x0'].type(dtype).to(device)
